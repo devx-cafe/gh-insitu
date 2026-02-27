@@ -1,0 +1,65 @@
+{
+  "version": "0.2",
+  "$schema": "https://raw.githubusercontent.com/streetsidesoftware/cspell/main/cspell.schema.json",
+  "import": ["@cspell/dict-da-dk/cspell-ext.json"],
+  "language": "en-US, da-DK",
+  "ignorePaths": [
+    "**/node_modules/**",
+    "**/bower_components/**",
+    "**/vendor/**",
+    "**/dist/**",
+    "**/.git/**",
+    "**/.github/**",
+    "**/.cspell/**",
+    "**/coverage/**",
+    "**/logs/**",
+    "**/tmp/**",
+    "**/temp/**",
+    "**/_site/**",
+    ".cspell.jsonc",
+    "**/coverage.txt",
+    "**/coverage.html",
+    "**/*.go",
+    "**/Makefile",
+    "**/go.mod",
+    "**/go.sum",
+  ],
+  "files": [
+    "**/*.md",
+    "**/*.markdown",
+    "**/*.txt",
+    "**/*.json",
+    "**/*.jsonc",
+    "**/*.yml",
+    "**/*.yaml",
+    "**/*.html",
+  ],
+  "dictionaryDefinitions": [
+    {
+      "name": "Repo dictionary",
+      "path": "./.dict/repo.dictionary",
+    },
+  ],
+  "dictionaries": ["Repo dictionary"],
+  "languageSettings": [
+    {
+      "languageId": "markdown",
+      "dictionaries": ["Repo dictionary"],
+    },
+    {
+      "languageId": "plaintext",
+      "dictionaries": ["Repo dictionary"],
+    },
+  ],
+  "ignoreRegExpList": [
+    "{%[\\s\\S]*?%}", // ignore inline liquid tags
+    "^---[\\s\\S]*?^---$", // ignore YAML front matter
+    "^```[\\s\\S]*?^```$", // ignore code block
+    "`.*`", // ignore inline code
+    "<code>.*</code>", // ignore HTML code tags
+    "<!--.*?-->", // ignore HTML comments
+    "<a.*?>", // ignore HTML anchor tags,
+    "<img.*?>", // ignore HTML image tags,
+    "'.*'", // ignore text in single quotes
+  ],
+}

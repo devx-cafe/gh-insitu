@@ -1,0 +1,29 @@
+# Go files and related
+*.go
+go.mod
+go.sum
+
+# Build artifacts
+dist/
+.tmp/
+coverage/
+*.html
+
+# Dependencies
+node_modules/
+vendor/
+
+# Git/GitHub
+.git/
+.github/
+
+# OS/IDE
+.DS_Store
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Other
+Makefile
+coverage.txt
