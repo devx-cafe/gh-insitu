@@ -1,0 +1,95 @@
+#!/bin/bash
+
+# cspell:ignore filetree checkin
+
+# Helper script that will retrieve files from {ref} (branch, commit or tag) and check them in 
+# on current branch. It will fail if it detects that either the index or filetree is not clean.
+# 
+# Examples:
+# 
+# co-sample "Create a workspace file in the root of your repo" sample default.code-workspace
+
+
+USAGE=$(cat <<'EOF'
+Usage:
+  co-sample  {commit-message} {ref} {file1}...{fileN}
+EOF
+)
+
+# --functions--
+
+is_dirty() {
+  if [ -n "$(git status --porcelain)" ]; then
+     echo "❌ Workspace is dirty - fix it"
+    return 1
+  else
+    return 0
+  fi
+}
+
+verify_args() {
+  if [ -z "$1" ]; then
+    echo "❌ Missing commit message"
+    echo "$USAGE"
+    return 1
+  fi
+  if [ -z "$2" ]; then
+    echo "❌ Missing ref"
+    echo "$USAGE"
+    return 1
+  fi
+  if [ -z "$3" ]; then
+    echo "❌ Missing file(s)"
+    echo "$USAGE"
+    return 1
+  fi
+  return 0
+}
+
+checkout_files() {
+  local ref="$1"
+  shift
+  local files=("$@")
+  for file in "${files[@]}"; do
+    git checkout "$ref" -- "$file" > /dev/null 2>&1
+    if [ $? -gt 0 ]; then
+      echo "❌ Failed to checkout $file from $ref"
+      return 1
+    fi
+  done
+  return 0
+}
+
+checkout_main() {
+  git checkout main > /dev/null 2>&1
+  if [ $? -gt 0 ]; then
+    echo "❌ Failed to checkout main branch"
+    return 1
+  fi
+  return 0
+}
+
+checkin() {
+  local message="$1"
+  git add -A > /dev/null 2>&1
+  if [ $? -gt 0 ]; then
+    echo "❌ Failed to stage changes '$message'"
+    return 1        
+  fi
+  git commit -m "$message" > /dev/null 2>&1
+  if [ $? -gt 0 ]; then
+    echo "❌ Failed to commit changes '$message'"
+    return 1
+  fi
+  echo "✅ $message"
+  return 0
+}
+
+# --main--
+
+verify_args "$@" || exit 1
+checkout_main || exit 1
+is_dirty || exit 1
+checkout_files "$2" "${@:3}" || exit 1
+checkin "$1" || exit 1
+exit 0

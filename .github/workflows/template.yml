@@ -1,0 +1,54 @@
+name: Initial commit workflow
+
+on:
+  push:
+    branches:
+      - '**' 
+
+env:
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+permissions:
+  checks:   write
+  actions:  write   
+  issues:   write   
+
+concurrency:
+  group: "mkissues"
+  cancel-in-progress: false
+
+jobs:
+  mkissues:
+    name: "Initial commit only"
+    runs-on: ubuntu-latest
+    if: ${{ contains(github.event.head_commit.message, 'Initial commit') }}
+    steps:       
+      - name: "Checkout"
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: "Raise semaphore (cancel workflow) or quit"
+        run: |
+          if $(gh workflow disable template.yml); then
+            echo "✅ Workflow disabled (designed to run only once)" >> $GITHUB_STEP_SUMMARY
+            echo "This also works as a raised semaphore - parallel workflow runs will see it and cancel"
+          else
+            echo "### ⚠️ Another job got here first" >> $GITHUB_STEP_SUMMARY
+            echo "This room is crowded - this is a rare race condition occurrence of dual job start. I'm outta here!" >> $GITHUB_STEP_SUMMARY
+            gh api -X POST /repos/{owner}/{repo}/actions/runs/${{ github.run_id }}/cancel
+            exit 1
+          fi
+          
+      - name: "Generate issues over from *.issue.md files"
+        run: |
+          gh extension install lakruzz/gh-utils
+          git cherry-pick origin/shadow/exercises --no-commit
+          git reset
+          gh utils mkissue --file exercises/1.workspace.issue.md
+          gh utils mkissue --file exercises/2.devcontainer.issue.md
+          gh utils mkissue --file exercises/3.linters.issue.md
+          gh utils mkissue --file exercises/4.git.issue.md
+          gh utils mkissue --file exercises/5.workflow.issue.md
+          gh utils mkissue --file exercises/6.boilerplate.issue.md
+          gh utils mkissue --file exercises/7.copilot.issue.md    
