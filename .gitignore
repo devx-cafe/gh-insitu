@@ -1,0 +1,44 @@
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+utils
+utils.exe
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool
+*.out
+coverage.txt
+coverage.html
+
+# Go workspace file
+go.work
+go.work.sum
+
+# Dependency directories
+vendor/
+
+# IDE
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Temporary files
+.tmp/
+tmp/
+
+# Build artifacts
+dist/
+build/
+example-issue.md
+
+## gh-tt
+.tt_cache
+*.octoshift.log
+*.octoshift.verbose.log
