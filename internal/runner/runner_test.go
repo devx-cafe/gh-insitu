@@ -216,7 +216,7 @@ waves:
 func TestRunner_NewFormatterLocal(t *testing.T) {
 	// Verify NewFormatter returns a non-nil formatter when not in CI
 	t.Setenv("GITHUB_ACTIONS", "")
-	f := ui.NewFormatter(io.Discard)
+	f := ui.NewFormatter(io.Discard, false)
 	if f == nil {
 		t.Fatal("NewFormatter() returned nil")
 	}
@@ -224,7 +224,7 @@ func TestRunner_NewFormatterLocal(t *testing.T) {
 
 func TestRunner_NewFormatterCI(t *testing.T) {
 	t.Setenv("GITHUB_ACTIONS", "true")
-	f := ui.NewFormatter(io.Discard)
+	f := ui.NewFormatter(io.Discard, false)
 	if f == nil {
 		t.Fatal("NewFormatter() returned nil in CI mode")
 	}

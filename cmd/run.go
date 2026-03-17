@@ -15,7 +15,12 @@ import (
 var (
 	runConfigFile string
 	markPending   bool
+	runVerbose    bool
 )
+
+// githubActionsEnv is the value of the GITHUB_ACTIONS environment variable
+// that indicates the process is running inside a GitHub Actions workflow.
+const githubActionsEnv = "true"
 
 var runCmd = &cobra.Command{
 	Use:   "run [wave-id...]",
@@ -34,19 +39,31 @@ without executing them.  This is only valid inside a GitHub Actions workflow
 and is typically run as an early step – before the real 'insitu run' – so
 the commit statuses appear as pending while the workflow is in progress.
 
+Use --verbose to print the full command output for every check, not just
+failures.  --verbose defaults to true inside GitHub Actions workflows and
+false everywhere else.
+
 Examples:
   insitu run                          # run all waves
   insitu run static                   # run only the 'static' wave
   insitu run static test              # run 'static' then 'test'
   insitu run --mark-pending           # mark all wave checks as pending
-  insitu run trunk-worthy --mark-pending  # mark trunk-worthy checks as pending`,
-	RunE: func(_ *cobra.Command, args []string) error {
+  insitu run trunk-worthy --mark-pending  # mark trunk-worthy checks as pending
+  insitu run --verbose                # always print all command output`,
+	RunE: func(cmd *cobra.Command, args []string) error {
 		cfg, err := config.Load(runConfigFile)
 		if err != nil {
 			return fmt.Errorf("could not load config: %w", err)
 		}
 
-		formatter := ui.NewFormatter(os.Stdout)
+		// Determine effective verbose setting.
+		// If the flag was explicitly set use it; otherwise default to true in CI.
+		verbose := runVerbose
+		if !cmd.Flags().Changed("verbose") {
+			verbose = os.Getenv("GITHUB_ACTIONS") == githubActionsEnv
+		}
+
+		formatter := ui.NewFormatter(os.Stdout, verbose)
 		r := runner.New(cfg, formatter)
 
 		if markPending {
@@ -54,7 +71,7 @@ Examples:
 		}
 
 		// Wire up GitHub commit status reporting when running inside a workflow.
-		if os.Getenv("GITHUB_ACTIONS") == "true" {
+		if os.Getenv("GITHUB_ACTIONS") == githubActionsEnv {
 			r.OnCheckDone = buildStatusReporter()
 		}
 
@@ -105,7 +122,7 @@ func buildStatusReporter() func(id, displayName string, passed bool) {
 // runMarkPending resolves all checks for the selected wave(s) and marks each
 // one as "pending" via the GitHub Statuses API.
 func runMarkPending(r *runner.Runner, waveIDs []string) error {
-	if os.Getenv("GITHUB_ACTIONS") != "true" {
+	if os.Getenv("GITHUB_ACTIONS") != githubActionsEnv {
 		return fmt.Errorf("--mark-pending is only valid inside a GitHub Actions workflow")
 	}
 
@@ -138,4 +155,6 @@ func init() {
 		"Path to the insitu configuration file")
 	runCmd.Flags().BoolVar(&markPending, "mark-pending", false,
 		"Mark all checks in the selected wave(s) as 'pending' without running them (GitHub Actions only)")
+	runCmd.Flags().BoolVar(&runVerbose, "verbose", false,
+		"Print command output for all checks, not just failures (default: true in GitHub Actions, false locally)")
 }

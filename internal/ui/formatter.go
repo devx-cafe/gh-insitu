@@ -21,11 +21,16 @@ type Formatter interface {
 // NewFormatter returns the appropriate Formatter for the current environment.
 // When GITHUB_ACTIONS is set to "true" a CI-optimised formatter is returned;
 // otherwise a plain text formatter suitable for local use is returned.
-func NewFormatter(out io.Writer) Formatter {
+//
+// verbose controls whether command output is printed for passing checks as well
+// as failing ones.  When false (the default for local runs), output is shown
+// only for failed checks.  When true (the default inside GitHub Actions),
+// output is always shown.
+func NewFormatter(out io.Writer, verbose bool) Formatter {
 	if os.Getenv("GITHUB_ACTIONS") == "true" {
-		return &ciFormatter{out: out, summaryPath: os.Getenv("GITHUB_STEP_SUMMARY")}
+		return &ciFormatter{out: out, summaryPath: os.Getenv("GITHUB_STEP_SUMMARY"), verbose: verbose}
 	}
-	return &localFormatter{out: out}
+	return &localFormatter{out: out, verbose: verbose}
 }
 
 // ow is a write helper that silently absorbs the (n, err) pair returned by
@@ -36,7 +41,8 @@ func ow(n int, err error) { _, _ = n, err }
 // ─── Local formatter ─────────────────────────────────────────────────────────
 
 type localFormatter struct {
-	out io.Writer
+	out     io.Writer
+	verbose bool
 }
 
 func (f *localFormatter) WaveStart(_, name string) {
@@ -63,7 +69,7 @@ func (f *localFormatter) CheckEnd(_, displayName string, passed bool, output []b
 		icon = "❌"
 	}
 	ow(fmt.Fprintf(f.out, "   %s %s (%.1fs)\n", icon, displayName, duration.Seconds()))
-	if !passed && len(output) > 0 {
+	if (f.verbose || !passed) && len(output) > 0 {
 		ow(fmt.Fprintf(f.out, "\n%s\n", strings.TrimRight(string(output), "\n")))
 	}
 }
@@ -82,6 +88,7 @@ func (f *localFormatter) PrintSummary(allPassed bool) {
 type ciFormatter struct {
 	out         io.Writer
 	summaryPath string
+	verbose     bool
 }
 
 func (f *ciFormatter) WaveStart(_, name string) {
@@ -103,7 +110,7 @@ func (f *ciFormatter) CheckEnd(_, displayName string, passed bool, output []byte
 	}
 	ow(fmt.Fprintf(f.out, "%s %s\n", icon, displayName))
 
-	if len(output) > 0 {
+	if (f.verbose || !passed) && len(output) > 0 {
 		ow(fmt.Fprintf(f.out, "%s\n", string(output)))
 	}
 

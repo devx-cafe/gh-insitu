@@ -182,7 +182,7 @@ func TestRunMarkPending_FailsOutsideCI(t *testing.T) {
 		Inventory: []config.Check{{ID: "x", Command: "echo x"}},
 		Waves:     []config.Wave{{ID: "w", Checks: []string{"x"}}},
 	}
-	f := ui.NewFormatter(os.Stdout)
+	f := ui.NewFormatter(os.Stdout, false)
 	r := runner.New(cfg, f)
 
 	err := runMarkPending(r, nil)
@@ -205,7 +205,7 @@ func TestRunMarkPending_FailsWithoutToken(t *testing.T) {
 		Inventory: []config.Check{{ID: "x", Command: "echo x"}},
 		Waves:     []config.Wave{{ID: "w", Checks: []string{"x"}}},
 	}
-	f := ui.NewFormatter(os.Stdout)
+	f := ui.NewFormatter(os.Stdout, false)
 	r := runner.New(cfg, f)
 
 	err := runMarkPending(r, nil)
@@ -224,7 +224,7 @@ func TestRunMarkPending_UnknownWave(t *testing.T) {
 		Inventory: []config.Check{{ID: "x", Command: "echo x"}},
 		Waves:     []config.Wave{{ID: "w", Checks: []string{"x"}}},
 	}
-	f := ui.NewFormatter(os.Stdout)
+	f := ui.NewFormatter(os.Stdout, false)
 	r := runner.New(cfg, f)
 
 	err := runMarkPending(r, []string{"no-such-wave"})
