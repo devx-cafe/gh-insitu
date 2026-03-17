@@ -13,7 +13,7 @@ inputs:
     required: false
     default: ''
   binary-name:
-    description: Prefix for the binary name (e.g., 'godo' produces godo-linux-amd64)
+    description: Prefix for the binary name (e.g., 'insitu' produces insitu-linux-amd64)
     required: true
   upload-artifact:
     description: Upload the built binary as an artifact

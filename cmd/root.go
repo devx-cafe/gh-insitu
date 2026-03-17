@@ -8,7 +8,7 @@ import (
 )
 
 var rootCmd = &cobra.Command{
-	Use:   "godo",
+	Use:   "insitu",
 	Short: "GitHub utilities extension",
 	Long: `A collection of utilities for GitHub workflows and automation.
 This is a GitHub CLI extension that provides additional commands

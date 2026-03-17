@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/lakruzz/gh-godo/cmd"
+	"github.com/devx-cafe/gh-insitu/cmd"
 )
 
 func main() {

@@ -1,8 +1,8 @@
 <!-- cspell:ignore gofmt golangci  -->
 
-# Contributing to gh-godo
+# Contributing to gh-insitu
 
-Thank you for your interest in contributing to gh-godo! This document provides guidelines and information for developers.
+Thank you for your interest in contributing to gh-insitu! This document provides guidelines and information for developers.
 
 ## Developer Resources
 
@@ -33,8 +33,8 @@ These files contain essential information about:
 1. **Fork and Clone**
 
    ```bash
-   git clone https://github.com/YOUR_USERNAME/gh-godo.git
-   cd gh-godo
+   git clone https://github.com/YOUR_USERNAME/gh-insitu.git
+   cd gh-insitu
    ```
 
 2. **Configure Git Hooks**
@@ -96,7 +96,7 @@ These files contain essential information about:
    make build
 
    # Test the binary
-   ./godo --help
+   ./insitu --help
    ```
 
 5. **Commit Your Changes**
@@ -186,7 +186,7 @@ func TestFunction(t *testing.T) {
 make build
 ```
 
-This creates the `godo` binary in the repository root.
+This creates the `insitu` binary in the repository root.
 
 ### Multi-Platform Builds
 
@@ -299,7 +299,7 @@ make clean
 make build
 
 # Run with verbose output
-go build -v -o ./godo .
+go build -v -o ./insitu .
 ```
 
 ## Getting Help

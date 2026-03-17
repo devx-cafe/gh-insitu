@@ -1,11 +1,11 @@
-# Makefile for gh-godo
+# Makefile for gh-insitu
 .PHONY: help build test lint clean install coverage coverage-check watch build-all fmt vet
 
 # Default target
 .DEFAULT_GOAL := help
 
 # Binary name
-BINARY_NAME=godo
+BINARY_NAME=insitu
 
 # Build directory
 BUILD_DIR=.

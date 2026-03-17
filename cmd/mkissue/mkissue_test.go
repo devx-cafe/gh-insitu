@@ -625,7 +625,7 @@ Body`,
 		},
 		{
 			name:    "body with code blocks",
-			content: "---\ntitle: Code Issue\n---\nUsage:\n```bash\ngh godo mkissue --file issue.md\n```",
+			content: "---\ntitle: Code Issue\n---\nUsage:\n```bash\ngh insitu mkissue --file issue.md\n```",
 			wantErr: false,
 		},
 		{

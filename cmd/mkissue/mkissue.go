@@ -28,7 +28,7 @@ var repoNamePattern = regexp.MustCompile(`^[a-zA-Z0-9._-]+/[a-zA-Z0-9._-]+$`)
 
 func Run(args []string) {
 	if len(args) < 1 {
-		fmt.Fprintln(os.Stderr, "Usage: godo mkissue <file.issue.md>")
+		fmt.Fprintln(os.Stderr, "Usage: insitu mkissue <file.issue.md>")
 		os.Exit(1)
 	}
 

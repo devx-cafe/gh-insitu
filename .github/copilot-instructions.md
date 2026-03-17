@@ -1,8 +1,8 @@
-# GitHub Copilot Instructions for gh-godo
+# GitHub Copilot Instructions for gh-insitu
 
 ## Project Overview
 
-This repository contains `gh-godo`, a GitHub CLI extension written in Go. The extension provides utility commands for GitHub workflows and automation.
+This repository contains `gh-insitu`, a GitHub CLI extension written in Go. The extension provides utility commands for GitHub workflows and automation.
 
 ## Project Structure
 
@@ -78,11 +78,11 @@ When modifying the code:
 This project is designed to be installed as a GitHub CLI extension:
 
 ```bash
-gh extension install lakruzz/gh-godo
-gh godo mkissue --file issue.md
+gh extension install devx-cafe/gh-insitu
+gh insitu mkissue --file issue.md
 ```
 
-The binary must be named `godo` and placed in the repository root to be recognized by the `gh` CLI.
+The binary must be named `insitu` and placed in the repository root to be recognized by the `gh` CLI.
 
 ## RAG Instructions Location
 

@@ -1,10 +1,10 @@
-// Package cmd provides command-line interface commands for the gh-godo extension.
+// Package cmd provides command-line interface commands for the gh-insitu extension.
 package cmd
 
 import (
 	"fmt"
 
-	"github.com/lakruzz/gh-godo/cmd/mkissue"
+	"github.com/devx-cafe/gh-insitu/cmd/mkissue"
 	"github.com/spf13/cobra"
 )
 
@@ -22,8 +22,8 @@ var mkissueCmd = &cobra.Command{
 The markdown file should contain YAML frontmatter with metadata and a markdown body.
 
 Usage variants:
-  godo mkissue --file <file> [--branch <branch>] [--repo <owner/repo>]
-  godo mkissue --file <file> [--gist <gist-id>]
+  insitu mkissue --file <file> [--branch <branch>] [--repo <owner/repo>]
+  insitu mkissue --file <file> [--gist <gist-id>]
 
 Rules:
   --file is always required

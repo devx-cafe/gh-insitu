@@ -1,4 +1,4 @@
-module github.com/lakruzz/gh-godo
+module github.com/devx-cafe/gh-insitu
 
 go 1.21
 
