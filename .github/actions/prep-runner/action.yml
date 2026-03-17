@@ -9,10 +9,17 @@ inputs:
 runs:
   using: composite
   steps:
+    - name: Verify environment
+      if: ${{ inputs.verify }}
+      shell: bash
+      run: |
+        make build 
+        ${{ inputs.verify }} --mark-pending
+
     - name: Set up Node.js
-      uses: actions/setup-node@v4
+      uses: actions/setup-node@v6
       with:
-        node-version: "20"
+        node-version: "24"
 
     # Install npm packages required by .githooks/pre-commit
     - name: Install linting and checker tools
@@ -22,11 +29,6 @@ runs:
     - name: Install golang-lint
       shell: bash
       run: make install-lint
-
-    - name: build
-      shell: bash
-      run: make build
-
 
     - name: Verify environment
       if: ${{ inputs.verify }}
