@@ -9,11 +9,14 @@ inputs:
 runs:
   using: composite
   steps:
+    - name: build
+      shell: bash
+      run: make build
+
     - name: Verify environment
       if: ${{ inputs.verify }}
       shell: bash
       run: |
-        make build 
         ${{ inputs.verify }} --mark-pending
 
     - name: Set up Node.js

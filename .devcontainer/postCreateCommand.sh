@@ -33,8 +33,7 @@ if [ -f "go.mod" ]; then
     echo "$PREFIX Installing Go dependencies (go mod download)..."
     go mod download
 
-    curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | \
-    sh -s -- -b $(go env GOPATH)/bin latest
+    make install-lint
     echo "$PREFIX ✅ Installing golangci-lint"
 
 fi

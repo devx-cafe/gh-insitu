@@ -26,13 +26,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Mark checks as pending
-        run: |
-          make build
-          ./insitu run --mark-pending
-
-      - name: Set up runner environment
+      - name: Set up and verify runner environment
         uses: ./.github/actions/prep-runner
-
-      - name: Run checks
-        run: ./insitu run
+        with:
+          verify: ./insitu run
