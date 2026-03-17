@@ -1,4 +1,4 @@
-<!-- cspell:ignore gofmt golangci insitu mkdirs -->
+<!-- cspell:ignore gofmt golangci insitu -->
 
 # Contributing to gh-insitu
 

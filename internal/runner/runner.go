@@ -46,8 +46,9 @@ func (w WaveResult) Success() bool {
 
 // Runner executes configuration waves using the provided formatter for output.
 type Runner struct {
-	Config    *config.Config
-	Formatter ui.Formatter
+	Config      *config.Config
+	Formatter   ui.Formatter
+	OnCheckDone func(id, displayName string, passed bool) // called after each check; nil = no-op
 }
 
 // New creates a Runner for the given configuration and formatter.
@@ -126,6 +127,9 @@ func (r *Runner) runParallel(checks []config.ResolvedCheck) []CheckResult {
 			defer wg.Done()
 			res := execCheck(chk)
 			r.Formatter.CheckEnd(chk.ID, chk.DisplayName(), res.Success(), res.Output, res.Duration)
+			if r.OnCheckDone != nil {
+				r.OnCheckDone(chk.ID, chk.DisplayName(), res.Success())
+			}
 			results[idx] = res
 		}(i, check)
 	}
@@ -140,9 +144,49 @@ func (r *Runner) runSequential(checks []config.ResolvedCheck) []CheckResult {
 		r.Formatter.CheckStart(check.ID, check.DisplayName())
 		res := execCheck(check)
 		r.Formatter.CheckEnd(check.ID, check.DisplayName(), res.Success(), res.Output, res.Duration)
+		if r.OnCheckDone != nil {
+			r.OnCheckDone(check.ID, check.DisplayName(), res.Success())
+		}
 		results[i] = res
 	}
 	return results
+}
+
+// ResolveChecks returns the deduplicated ordered list of ResolvedChecks for the
+// given wave IDs (or all waves when waveIDs is empty).  It does NOT execute
+// any commands and is safe to call for dry-run operations like mark-pending.
+func (r *Runner) ResolveChecks(waveIDs []string) ([]config.ResolvedCheck, error) {
+	waves := r.Config.Waves
+	if len(waveIDs) > 0 {
+		waves = make([]config.Wave, 0, len(waveIDs))
+		for _, id := range waveIDs {
+			wave, ok := r.Config.GetWave(id)
+			if !ok {
+				return nil, fmt.Errorf("wave %q not found in configuration", id)
+			}
+			waves = append(waves, *wave)
+		}
+	}
+
+	inventory := r.Config.InventoryMap()
+	seen := make(map[string]struct{})
+	var resolved []config.ResolvedCheck
+
+	for _, wave := range waves {
+		for _, checkID := range wave.Checks {
+			if _, already := seen[checkID]; already {
+				continue
+			}
+			seen[checkID] = struct{}{}
+			check, ok := inventory[checkID]
+			if !ok {
+				return nil, fmt.Errorf("check %q not found in inventory", checkID)
+			}
+			resolved = append(resolved, r.Config.ResolveCheck(check))
+		}
+	}
+
+	return resolved, nil
 }
 
 // execCheck runs a single check command and returns its result.

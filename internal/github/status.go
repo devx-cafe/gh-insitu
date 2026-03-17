@@ -30,11 +30,21 @@ type statusPayload struct {
 	Context     string `json:"context,omitempty"`
 }
 
+// gitHubAPIBase is the URL template for the GitHub Statuses API.
+// It can be overridden in tests via SetCommitStatusURL.
+const gitHubAPIBase = "https://api.github.com/repos/%s/statuses/%s"
+
 // SetCommitStatus creates or updates a commit status on GitHub.
 //
 // repo must be in "owner/repo" format. sha is the full or short commit SHA.
 // token is the GitHub personal access token (GH_TOKEN / GITHUB_TOKEN).
 func SetCommitStatus(repo, sha, token string, state State, description, context string) error {
+	return SetCommitStatusURL(gitHubAPIBase, repo, sha, token, state, description, context)
+}
+
+// SetCommitStatusURL is like SetCommitStatus but accepts a custom URL template
+// for testing.  The template must contain two %s verbs: repo and sha.
+func SetCommitStatusURL(urlTemplate, repo, sha, token string, state State, description, context string) error {
 	if repo == "" {
 		return fmt.Errorf("repo is required")
 	}
@@ -56,7 +66,7 @@ func SetCommitStatus(repo, sha, token string, state State, description, context 
 		return fmt.Errorf("failed to encode payload: %w", err)
 	}
 
-	url := fmt.Sprintf("https://api.github.com/repos/%s/statuses/%s", repo, sha)
+	url := fmt.Sprintf(urlTemplate, repo, sha)
 	req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(body))
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)

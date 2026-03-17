@@ -52,8 +52,9 @@ func (f *localFormatter) WaveEnd(_ string, passed bool) {
 	}
 }
 
-func (f *localFormatter) CheckStart(_, displayName string) {
-	ow(fmt.Fprintf(f.out, "   ⏳ %s\n", displayName))
+func (f *localFormatter) CheckStart(_, _ string) {
+	// Local output is results-only: ⏳ is not printed because in parallel waves
+	// the hourglass lines interleave with the ✅/❌ result lines.
 }
 
 func (f *localFormatter) CheckEnd(_, displayName string, passed bool, output []byte, duration time.Duration) {

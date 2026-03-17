@@ -11,7 +11,7 @@ BINARY_NAME=insitu
 BUILD_DIR=.
 
 # Coverage threshold (percentage)
-COVERAGE_THRESHOLD=40
+COVERAGE_THRESHOLD=70
 
 # Go parameters
 GOCMD=go

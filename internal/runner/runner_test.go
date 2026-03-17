@@ -4,6 +4,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 
@@ -226,5 +227,128 @@ func TestRunner_NewFormatterCI(t *testing.T) {
 	f := ui.NewFormatter(io.Discard)
 	if f == nil {
 		t.Fatal("NewFormatter() returned nil in CI mode")
+	}
+}
+
+func TestRunner_OnCheckDone_CalledForEachCheck(t *testing.T) {
+	cfg := loadRunnerConfig(t)
+	r := runner.New(cfg, discardFormatter{})
+
+	var called []string
+	var mu sync.Mutex
+	r.OnCheckDone = func(id, _ string, _ bool) {
+		mu.Lock()
+		called = append(called, id)
+		mu.Unlock()
+	}
+
+	_, err := r.RunWaves([]string{"parallel-wave"})
+	if err != nil {
+		t.Fatalf("RunWaves() error = %v", err)
+	}
+
+	if len(called) != 2 {
+		t.Errorf("OnCheckDone called %d times, want 2", len(called))
+	}
+}
+
+func TestRunner_OnCheckDone_ReportsPassFail(t *testing.T) {
+	cfg := loadRunnerConfig(t)
+	cfg.Defaults.DieOnError = false
+	r := runner.New(cfg, discardFormatter{})
+
+	passed := map[string]bool{}
+	var mu sync.Mutex
+	r.OnCheckDone = func(id, _ string, ok bool) {
+		mu.Lock()
+		passed[id] = ok
+		mu.Unlock()
+	}
+
+	_, err := r.RunWaves([]string{"failing-wave"})
+	if err != nil {
+		t.Fatalf("RunWaves() error = %v", err)
+	}
+
+	if !passed["echo-hello"] {
+		t.Error("echo-hello should be reported as passed")
+	}
+	if passed["fail-check"] {
+		t.Error("fail-check should be reported as failed")
+	}
+}
+
+func TestRunner_ResolveChecks_AllWaves(t *testing.T) {
+	cfg := loadRunnerConfig(t)
+	r := runner.New(cfg, discardFormatter{})
+
+	checks, err := r.ResolveChecks(nil)
+	if err != nil {
+		t.Fatalf("ResolveChecks() error = %v", err)
+	}
+	// runner_test.yml has 4 waves referencing 6 distinct check IDs, but some are shared;
+	// deduplicated count is what we care about.
+	if len(checks) == 0 {
+		t.Error("ResolveChecks() returned empty slice")
+	}
+}
+
+func TestRunner_ResolveChecks_SpecificWave(t *testing.T) {
+	cfg := loadRunnerConfig(t)
+	r := runner.New(cfg, discardFormatter{})
+
+	checks, err := r.ResolveChecks([]string{"parallel-wave"})
+	if err != nil {
+		t.Fatalf("ResolveChecks() error = %v", err)
+	}
+	if len(checks) != 2 {
+		t.Errorf("len(checks) = %d, want 2", len(checks))
+	}
+	if checks[0].ID != "echo-hello" {
+		t.Errorf("checks[0].ID = %q, want %q", checks[0].ID, "echo-hello")
+	}
+	if checks[1].ID != "echo-world" {
+		t.Errorf("checks[1].ID = %q, want %q", checks[1].ID, "echo-world")
+	}
+}
+
+func TestRunner_ResolveChecks_DeduplicatesAcrossWaves(t *testing.T) {
+	yml := `
+defaults:
+  die-on-error: false
+inventory:
+  - id: "a"
+    command: "echo a"
+  - id: "b"
+    command: "echo b"
+waves:
+  - id: "w1"
+    parallel: false
+    checks: ["a", "b"]
+  - id: "w2"
+    parallel: false
+    checks: ["a"]
+`
+	cfg, err := config.Parse([]byte(yml))
+	if err != nil {
+		t.Fatalf("Parse() error = %v", err)
+	}
+	r := runner.New(cfg, discardFormatter{})
+	checks, err := r.ResolveChecks(nil)
+	if err != nil {
+		t.Fatalf("ResolveChecks() error = %v", err)
+	}
+	if len(checks) != 2 {
+		t.Errorf("len(checks) = %d, want 2 (deduplicated)", len(checks))
+	}
+}
+
+func TestRunner_ResolveChecks_UnknownWave(t *testing.T) {
+	cfg := loadRunnerConfig(t)
+	r := runner.New(cfg, discardFormatter{})
+
+	_, err := r.ResolveChecks([]string{"no-such-wave"})
+	if err == nil {
+		t.Fatal("ResolveChecks() error = nil, want error for unknown wave")
 	}
 }
