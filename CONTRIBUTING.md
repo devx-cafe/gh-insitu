@@ -156,20 +156,20 @@ The core configuration format for `gh insitu`:
 
 ```yaml
 defaults:
-  die-on-error: true   # stop after a failing wave
-  timeout: 5m          # default per-check timeout
+  die-on-error: true # stop after a failing wave
+  timeout: 5m # default per-check timeout
   verbose: false
 
 inventory:
   - id: "build"
     name: "Build"
     command: "make build"
-    timeout: 10m        # optional per-check override
+    timeout: 10m # optional per-check override
 
 waves:
   - id: "static"
     name: "Static Analysis"
-    parallel: true      # run checks in this wave concurrently
+    parallel: true # run checks in this wave concurrently
     checks:
       - "build"
 ```

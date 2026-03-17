@@ -19,6 +19,15 @@ runs:
       shell: bash
       run: npm install -g cspell markdownlint-cli2 @cspell/dict-da-dk prettier
 
+    - name: Install golang-lint
+      shell: bash
+      run: make install-lint
+
+    - name: build
+      shell: bash
+      run: make build
+
+
     - name: Verify environment
       if: ${{ inputs.verify }}
       shell: bash
