@@ -1,4 +1,4 @@
-<!-- cspell:ignore gofmt golangci  -->
+<!-- cspell:ignore gofmt golangci insitu mkdirs -->
 
 # Contributing to gh-insitu
 
@@ -12,6 +12,7 @@ For comprehensive development guidelines, please read the following RAG (Retriev
 
 - [`.github/copilot-instructions.md`](.github/copilot-instructions.md) - Project overview and code standards
 - [`.github/instructions/go-standards.instructions.md`](.github/instructions/go-standards.instructions.md) - Detailed Go development standards
+- [`.github/instructions/insitu-idea.instructions.md`](.github/instructions/insitu-idea.instructions.md) - InSitu design document
 
 These files contain essential information about:
 
@@ -23,9 +24,9 @@ These files contain essential information about:
 
 ## Prerequisites
 
-- **Go 1.23 or higher** - This project targets Go 1.23+
+- **Go 1.21 or higher** - This project targets Go 1.21+
 - **Make** - For build automation
-- **golangci-lint** - Can be installed via `make install-lint`
+- **golangci-lint v2** - Can be installed via `make install-lint`
 - **Git** - Configured with `.githooks` for pre-commit checks
 
 ## Getting Started
@@ -97,6 +98,12 @@ These files contain essential information about:
 
    # Test the binary
    ./insitu --help
+
+   # Validate your .insitu.yml changes
+   ./insitu plan
+
+   # Run all checks (self-hosting)
+   ./insitu run
    ```
 
 5. **Commit Your Changes**
@@ -112,23 +119,59 @@ These files contain essential information about:
 
 ```txt
 .
-├── main.go                 # Application entry point
-├── cmd/                    # Command implementations
-│   ├── root.go            # Root command definition
-│   ├── mkissue.go         # mkissue command definition
-│   └── mkissue/           # mkissue implementation
-│       ├── mkissue.go     # Core logic
-│       └── mkissue_test.go # Tests (alongside implementation)
-├── exercises/              # Example files and templates
-│   └── template.issue.md  # Issue file format contract
-├── Makefile               # Build automation
-├── .golangci.yml          # Linter configuration
-├── .githooks/             # Git hooks
-│   └── pre-commit         # Pre-commit checks
-└── .github/               # GitHub configuration
-    ├── copilot-instructions.md        # Project guidelines
-    └── instructions/                   # Additional documentation
-        └── go-standards.instructions.md
+├── main.go                    # Application entry point
+├── cmd/                       # Command implementations
+│   ├── root.go               # Root command definition
+│   ├── run.go                # 'run' command – execute waves
+│   ├── plan.go               # 'plan' command – dry-run preview
+│   ├── init.go               # 'init' command – bootstrap config
+│   └── setstatus.go          # 'set-status' command – GitHub commit status
+├── internal/
+│   ├── config/               # YAML parsing, validation, inheritance
+│   │   ├── config.go
+│   │   ├── config_test.go
+│   │   └── testdata/         # Test YAML fixtures
+│   ├── runner/               # Parallel wave executor
+│   │   ├── runner.go
+│   │   └── runner_test.go
+│   ├── ui/                   # Output formatters (local + CI)
+│   │   └── formatter.go
+│   └── github/               # GitHub API helpers (commit status)
+│       └── status.go
+├── .insitu.yml               # Self-hosting configuration
+├── Makefile                  # Build automation
+├── .golangci.yml             # Linter configuration (golangci-lint v2)
+├── .githooks/                # Git hooks
+│   └── pre-commit            # Pre-commit checks
+└── .github/                  # GitHub configuration
+    ├── copilot-instructions.md
+    └── instructions/
+        ├── go-standards.instructions.md
+        └── insitu-idea.instructions.md
+```
+
+## The insitu.yml Configuration
+
+The core configuration format for `gh insitu`:
+
+```yaml
+defaults:
+  die-on-error: true   # stop after a failing wave
+  timeout: 5m          # default per-check timeout
+  verbose: false
+
+inventory:
+  - id: "build"
+    name: "Build"
+    command: "make build"
+    timeout: 10m        # optional per-check override
+
+waves:
+  - id: "static"
+    name: "Static Analysis"
+    parallel: true      # run checks in this wave concurrently
+    checks:
+      - "build"
 ```
 
 ## Testing
@@ -138,9 +181,16 @@ These files contain essential information about:
 Tests follow the **Go community standard**: test files are placed alongside the code they test.
 
 - Unit tests: `*_test.go` files in the same directory as the implementation
-- Example: `cmd/mkissue/mkissue.go` has tests in `cmd/mkissue/mkissue_test.go`
+- Test fixtures: `testdata/` directories alongside test files
+- Example: `internal/config/config.go` has tests in `internal/config/config_test.go`
 
-This is the idiomatic Go approach and makes tests easy to find and maintain.
+### Testing Philosophy (Detroit School)
+
+Tests use **stateful fixtures** rather than mocks:
+
+- YAML test files in `testdata/` represent real configuration states
+- Runner tests execute actual shell commands (`echo`, `sh -c 'exit 1'`, etc.)
+- No interface mocking; use real objects with controlled inputs
 
 ### Writing Tests
 
@@ -148,35 +198,6 @@ This is the idiomatic Go approach and makes tests easy to find and maintain.
 - Test both success and error paths
 - Include edge cases
 - Aim for high coverage on business logic
-
-Example table-driven test:
-
-```go
-func TestFunction(t *testing.T) {
-    tests := []struct {
-        name    string
-        input   string
-        want    string
-        wantErr bool
-    }{
-        {"valid input", "test", "result", false},
-        {"error case", "", "", true},
-    }
-
-    for _, tt := range tests {
-        t.Run(tt.name, func(t *testing.T) {
-            got, err := Function(tt.input)
-            if (err != nil) != tt.wantErr {
-                t.Errorf("error = %v, wantErr %v", err, tt.wantErr)
-                return
-            }
-            if got != tt.want {
-                t.Errorf("got %v, want %v", got, tt.want)
-            }
-        })
-    }
-}
-```
 
 ## Building
 
@@ -228,7 +249,7 @@ If any check fails, the commit is rejected. Fix the issues and try again.
 
 - **Follow Go idioms**: Use standard Go patterns and conventions
 - **Format with gofmt**: Code must be formatted with `gofmt`
-- **Use golangci-lint**: Address all linter warnings
+- **Use golangci-lint v2**: Address all linter warnings
 - **Document exports**: All exported functions, types, and constants need documentation
 - **Error handling**: Always check and wrap errors with context
 
@@ -241,8 +262,11 @@ If any check fails, the commit is rejected. Fix the issues and try again.
 
 ### Package Organization
 
-- **`cmd/`**: CLI command definitions and implementations
-- **`internal/`**: Internal packages (if needed, currently not used)
+- **`cmd/`**: CLI command definitions
+- **`internal/config/`**: YAML config parsing and validation
+- **`internal/runner/`**: Parallel wave execution engine
+- **`internal/ui/`**: Output formatters (local and CI modes)
+- **`internal/github/`**: GitHub API helpers
 - **One purpose per package**: Keep packages focused and cohesive
 
 ## CI/CD
@@ -257,25 +281,22 @@ GitHub Actions workflows automatically:
 
 See `.github/workflows/` for workflow definitions.
 
-## Issue File Format
-
-The `mkissue` command uses a specific format defined in [`exercises/template.issue.md`](exercises/template.issue.md). This is the **contract** for issue files:
-
-- YAML frontmatter with metadata (title, assignees, labels, etc.)
-- Markdown body for issue content
-
-When making changes to issue parsing, ensure compatibility with this format.
-
 ## Common Tasks
 
-### Add a New Command
+### Add a New Check to .insitu.yml
 
-1. Create command file in `cmd/` (e.g., `cmd/newcommand.go`)
-2. Create implementation package if needed (e.g., `cmd/newcommand/newcommand.go`)
-3. Add tests alongside implementation
-4. Register command in `cmd/root.go` init function
-5. Update README.md with usage documentation
-6. Run tests and linters
+1. Add an entry to `inventory:` with a unique `id` and `command`
+2. Reference the `id` in the appropriate `waves[].checks[]` list
+3. Run `insitu plan` to verify the configuration
+4. Run `insitu run` to execute
+
+### Add a New CLI Command
+
+1. Create a command file in `cmd/` (e.g., `cmd/newcommand.go`)
+2. Create an implementation package if needed (e.g., `internal/newpkg/`)
+3. Add tests alongside the implementation
+4. Register the command in the file's `init()` function (it auto-registers via `rootCmd.AddCommand`)
+5. Update this CONTRIBUTING.md with usage documentation
 
 ### Update Dependencies
 
@@ -289,34 +310,12 @@ make test
 make build
 ```
 
-### Debug Build Issues
-
-```bash
-# Clean everything
-make clean
-
-# Rebuild from scratch
-make build
-
-# Run with verbose output
-go build -v -o ./insitu .
-```
-
 ## Getting Help
 
 - Check the [RAG files](.github/copilot-instructions.md) first
 - Look at existing code for examples
 - Review closed pull requests for similar changes
 - Open an issue if you have questions
-
-## Code Review Process
-
-When you submit a pull request:
-
-1. Automated checks must pass (CI/CD)
-2. Code will be reviewed by maintainers
-3. Address any feedback
-4. Once approved, your PR will be merged
 
 ## License
 

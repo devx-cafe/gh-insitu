@@ -1,0 +1,10 @@
+# invalid: check missing required command field
+inventory:
+  - id: "no-command"
+    name: "Missing Command"
+
+waves:
+  - id: "wave1"
+    parallel: true
+    checks:
+      - "no-command"

@@ -1,0 +1,10 @@
+# minimal valid configuration - only required fields
+inventory:
+  - id: "check1"
+    command: "echo ok"
+
+waves:
+  - id: "wave1"
+    parallel: true
+    checks:
+      - "check1"

@@ -1,0 +1,59 @@
+# runner test configuration - uses simple, fast commands
+defaults:
+  die-on-error: true
+  timeout: 30s
+
+inventory:
+  - id: "echo-hello"
+    name: "Echo Hello"
+    command: "echo hello"
+
+  - id: "echo-world"
+    name: "Echo World"
+    command: "echo world"
+
+  - id: "fail-check"
+    name: "Failing Check"
+    command: "sh -c 'exit 1'"
+
+  - id: "slow-check"
+    name: "Slow Check"
+    command: "sleep 0.1"
+
+  - id: "echo-a"
+    name: "Echo A"
+    command: "echo a"
+
+  - id: "echo-b"
+    name: "Echo B"
+    command: "echo b"
+
+waves:
+  - id: "parallel-wave"
+    name: "Parallel Checks"
+    parallel: true
+    checks:
+      - "echo-hello"
+      - "echo-world"
+
+  - id: "sequential-wave"
+    name: "Sequential Checks"
+    parallel: false
+    checks:
+      - "echo-a"
+      - "echo-b"
+
+  - id: "failing-wave"
+    name: "Failing Wave"
+    parallel: true
+    checks:
+      - "echo-hello"
+      - "fail-check"
+
+  - id: "mixed-wave"
+    name: "Mixed Success"
+    parallel: false
+    checks:
+      - "echo-hello"
+      - "echo-world"
+      - "slow-check"

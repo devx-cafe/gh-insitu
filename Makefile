@@ -79,7 +79,7 @@ lint: ## Run linter (requires golangci-lint)
 
 install-lint: ## Install golangci-lint
 	@echo "Installing golangci-lint..."
-	@curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(shell go env GOPATH)/bin v1.61.0
+	@curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(shell go env GOPATH)/bin v2.1.6
 	@echo "✅ golangci-lint installed"
 
 fmt: ## Format code

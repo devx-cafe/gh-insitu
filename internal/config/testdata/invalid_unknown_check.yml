@@ -1,0 +1,10 @@
+# invalid: wave references an unknown check id
+inventory:
+  - id: "known"
+    command: "echo ok"
+
+waves:
+  - id: "bad-wave"
+    parallel: true
+    checks:
+      - "unknown-check"

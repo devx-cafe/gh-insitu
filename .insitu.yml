@@ -1,0 +1,46 @@
+# .insitu.yml – insitu self-hosting configuration
+# Run 'insitu plan' to preview  |  'insitu run' to execute
+# cspell:ignore markdownlint
+
+defaults:
+  die-on-error: true
+  timeout: 5m
+  verbose: false
+
+inventory:
+  - id: "cspell"
+    name: "Spell Check"
+    command: "cspell"
+
+  - id: "markdownlint"
+    name: "Markdown Lint"
+    command: "markdownlint-cli2"
+
+  - id: "prettier"
+    name: "Prettier Format Check"
+    command: "prettier --check ."
+
+  - id: "build"
+    name: "Build (current OS/Arch)"
+    command: "make build"
+    timeout: 10m
+
+  - id: "coverage"
+    name: "Unit Test with Coverage"
+    command: "make coverage"
+
+waves:
+  - id: "trunk-worthy"
+    name: "Static Analysis & Build"
+    parallel: true
+    checks:
+      - "cspell"
+      - "markdownlint"
+      - "prettier"
+      - "build"
+
+  - id: "test"
+    name: "Post-Build Validation"
+    parallel: true
+    checks:
+      - "coverage"
