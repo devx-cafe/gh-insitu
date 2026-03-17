@@ -1,3 +1,4 @@
+// insitu is a GitHub CLI extension for running checks in parallel waves.
 package main
 
 import (

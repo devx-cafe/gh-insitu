@@ -9,10 +9,15 @@ import (
 
 var rootCmd = &cobra.Command{
 	Use:   "insitu",
-	Short: "GitHub utilities extension",
-	Long: `A collection of utilities for GitHub workflows and automation.
-This is a GitHub CLI extension that provides additional commands
-to enhance your GitHub workflow.`,
+	Short: "Self-contained parallel task runner for GitHub CLI",
+	Long: `insitu is a GitHub CLI extension that brings parity between local
+development and CI environments through a repository-native "Inventory
+and Wave" system.
+
+Define checks once in .insitu.yml and run them identically both locally
+and inside GitHub Actions workflows.
+
+Run 'insitu init' to bootstrap a starter configuration.`,
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
@@ -24,5 +29,5 @@ func Execute() {
 }
 
 func init() {
-	// Global flags can be added here
+	rootCmd.CompletionOptions.HiddenDefaultCmd = true
 }
