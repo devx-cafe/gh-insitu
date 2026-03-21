@@ -179,6 +179,70 @@ waves:
 	}
 }
 
+func TestRunner_CommandPreservesQuotedArgs(t *testing.T) {
+	yml := `
+defaults:
+  die-on-error: false
+inventory:
+  - id: "quoted"
+    command: "printf '%s' 'hello world'"
+waves:
+  - id: "quoted-wave"
+    parallel: false
+    checks:
+      - "quoted"
+`
+	cfg, err := config.Parse([]byte(yml))
+	if err != nil {
+		t.Fatalf("Parse() error = %v", err)
+	}
+	r := runner.New(cfg, discardFormatter{})
+	results, err := r.RunWaves(nil)
+	if err != nil {
+		t.Fatalf("RunWaves() error = %v", err)
+	}
+	cr := results[0].Results[0]
+	if !cr.Success() {
+		t.Fatalf("check failed unexpectedly: exit=%d err=%v output=%q", cr.ExitCode, cr.Err, string(cr.Output))
+	}
+	if got := string(cr.Output); got != "hello world" {
+		t.Errorf("output = %q, want %q", got, "hello world")
+	}
+}
+
+func TestRunner_CommandSupportsMultilineBlock(t *testing.T) {
+	yml := `
+defaults:
+  die-on-error: false
+inventory:
+  - id: "multiline"
+    command: |
+      printf '%s\n' one
+      printf '%s\n' two
+waves:
+  - id: "multiline-wave"
+    parallel: false
+    checks:
+      - "multiline"
+`
+	cfg, err := config.Parse([]byte(yml))
+	if err != nil {
+		t.Fatalf("Parse() error = %v", err)
+	}
+	r := runner.New(cfg, discardFormatter{})
+	results, err := r.RunWaves(nil)
+	if err != nil {
+		t.Fatalf("RunWaves() error = %v", err)
+	}
+	cr := results[0].Results[0]
+	if !cr.Success() {
+		t.Fatalf("check failed unexpectedly: exit=%d err=%v output=%q", cr.ExitCode, cr.Err, string(cr.Output))
+	}
+	if got := string(cr.Output); got != "one\ntwo\n" {
+		t.Errorf("output = %q, want %q", got, "one\\ntwo\\n")
+	}
+}
+
 func TestRunner_Timeout(t *testing.T) {
 	yml := `
 defaults:

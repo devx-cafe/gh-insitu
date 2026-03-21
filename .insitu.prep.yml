@@ -1,0 +1,56 @@
+# .insitu.yml – insitu self-hosting configuration
+# Run 'insitu plan' to preview  |  'insitu run' to execute
+# cspell:ignore markdownlint
+
+defaults:
+  die-on-error: true
+  timeout: 5m
+  verbose: false
+
+inventory:
+  - id: "gh-auth"
+    name: "GitHub Authentication"
+    command: "gh auth status"
+
+  - id: "install-takt"
+    name: "Install Takt"
+    command: "gh extension install devx-cafe/gh-tt"
+
+  - id: "install-takt-shortcuts"
+    name: "Install Takt Shortcuts"
+    command: |
+      gh alias set workon '!gh tt workon "$@"' --clobber 
+      gh alias set wrapup '!gh tt wrapup "$@"' --clobber
+      gh alias set deliver '!gh tt deliver "$@"' --clobber
+      gh alias set semver '!gh tt semver "$@"' --clobber
+
+  - id: "safe-repo"
+    name: "Mark repository as safe for git operations"
+    command: "git config --global --add safe.directory $(pwd)"
+
+  - id: repo-gitconfig
+    name: "Use repo-root .gitconfig for consistent git settings"
+    command: |
+      git config --local --get include.path | grep -e ../.gitconfig >/dev/null 2>&1 || \
+      git config --local --add include.path ../.gitconfig
+
+  - id: "go-dependencies"
+    name: "Go dependencies"
+    command: "make deps"
+
+  - id: "install-go-lint"
+    name: "Install Go linting tools"
+    command: "make install-lint"
+
+waves:
+  - id: "prep"
+    name: "Preparation"
+    parallel: true
+    checks:
+      - "gh-auth"
+      - "install-takt"
+      - "install-takt-shortcuts"
+      - "safe-repo"
+      - "repo-gitconfig"
+      - "go-dependencies"
+      - "install-go-lint"

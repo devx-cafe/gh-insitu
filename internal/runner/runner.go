@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"os/exec"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -196,8 +197,7 @@ func execCheck(check config.ResolvedCheck) CheckResult {
 
 	start := time.Now()
 
-	parts := strings.Fields(check.Command)
-	if len(parts) == 0 {
+	if strings.TrimSpace(check.Command) == "" {
 		return CheckResult{
 			Check:    check,
 			Err:      fmt.Errorf("empty command for check %q", check.ID),
@@ -206,7 +206,9 @@ func execCheck(check config.ResolvedCheck) CheckResult {
 	}
 
 	// #nosec G204 -- command comes from the repository-owned .insitu.yml config file
-	cmd := exec.CommandContext(ctx, parts[0], parts[1:]...)
+	cmd := buildShellCommand(ctx, check.Command)
+	// Prevent long hangs when shell-spawned children keep stdio open after timeout.
+	cmd.WaitDelay = 200 * time.Millisecond
 	var buf bytes.Buffer
 	cmd.Stdout = &buf
 	cmd.Stderr = &buf
@@ -230,6 +232,14 @@ func execCheck(check config.ResolvedCheck) CheckResult {
 		Duration: duration,
 		Err:      err,
 	}
+}
+
+// buildShellCommand returns a platform-appropriate shell command invocation.
+func buildShellCommand(ctx context.Context, command string) *exec.Cmd {
+	if runtime.GOOS == "windows" {
+		return exec.CommandContext(ctx, "cmd", "/C", command)
+	}
+	return exec.CommandContext(ctx, "sh", "-c", command)
 }
 
 // isExitError tries to cast err to *exec.ExitError, returning true on success.

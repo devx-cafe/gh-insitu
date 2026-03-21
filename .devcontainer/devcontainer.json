@@ -27,7 +27,7 @@
   // "forwardPorts": [],
 
   // Use 'postCreateCommand' to run commands after the container is created.
-  "postCreateCommand": "./.devcontainer/postCreateCommand.sh",
+  "postCreateCommand": "gh ext install devx-cafe/gh-insitu && gh insitu run -c .insitu.prep.yml",
 
   // Configure tool-specific properties.
   "customizations": {
