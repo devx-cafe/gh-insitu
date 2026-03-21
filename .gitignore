@@ -6,6 +6,8 @@
 *.dylib
 insitu
 insitu.exe
+gh-insitu
+gh-insitu.exe
 
 # Test binary, built with `go test -c`
 *.test

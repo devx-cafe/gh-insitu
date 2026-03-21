@@ -6,9 +6,7 @@
   "image": "mcr.microsoft.com/devcontainers/base:noble",
   "features": {
     "ghcr.io/devcontainers/features/common-utils:2": {},
-    "ghcr.io/devcontainers/features/github-cli:1": {
-      "extensions": "devx-cafe/gh-insitu"
-    },
+    "ghcr.io/devcontainers/features/github-cli:1": {},
     "ghcr.io/devcontainers/features/go:1": {},
     "ghcr.io/devcontainers/features/python:1": {},
     "ghcr.io/devcontainers-extra/features/npm-packages:1": {
@@ -29,7 +27,7 @@
   // "forwardPorts": [],
 
   // Use 'postCreateCommand' to run commands after the container is created.
-  "postCreateCommand": "gh insitu run -c .insitu.prep.yml",
+  "postCreateCommand": "gh ext install devx-cafe/gh-insitu && gh insitu run -c .insitu.prep.yml",
 
   // Configure tool-specific properties.
   "customizations": {
