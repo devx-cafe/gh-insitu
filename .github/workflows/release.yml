@@ -50,7 +50,7 @@ jobs:
       - name: Build Go binary for ${{ matrix.os }}-${{ matrix.arch }}
         uses: ./.github/actions/build-go-binaries
         with:
-          binary-name: trunk-worthy
+          binary-name: gh-insitu
           os: ${{ matrix.os }}
           arch: ${{ matrix.arch }}
           ext: ${{ matrix.ext || '' }}
