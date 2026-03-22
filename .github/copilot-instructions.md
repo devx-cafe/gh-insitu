@@ -63,6 +63,14 @@ This repository contains `gh-insitu`, a GitHub CLI extension written in Go. The 
    - Go tests
    - Build verification
 
+## README Maintenance
+
+`README.md` is the primary user-facing documentation and **must be kept accurate and lean**.
+
+1. **Review on every commit** – whenever a major or minor feature is added or changed (anything that affects the user-visible interface, YAML schema, CLI commands, or install process), update `README.md` in the same commit. Patch-only fixes (e.g. internal refactors or bug fixes with no behavioural change) do not require README changes.
+2. **Keep it lean** – the README should be concise. Avoid long explanatory prose.
+3. **Extended documentation** – if detailed documentation is needed (architecture decisions, deep-dives, etc.), create individual `*.md` files inside the `docs/` folder and add a reference link from `README.md`.
+
 ## Making Changes
 
 When modifying the code:
@@ -71,7 +79,7 @@ When modifying the code:
 2. **Test first**: Run tests locally before committing
 3. **Lint your code**: Ensure `make lint` passes
 4. **Update tests**: Add or update tests for new functionality
-5. **Document**: Update relevant documentation
+5. **Document**: Update relevant documentation; always review `README.md` (see **README Maintenance** above)
 
 ## GH CLI Extension
 

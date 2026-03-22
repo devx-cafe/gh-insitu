@@ -164,7 +164,7 @@ make build-all         # Build for:
 - **Package comments**: Every package should have a package-level comment
 - **Exported functions**: Document all exported functions, types, and constants
 - **Examples**: Provide examples for complex functionality
-- **README**: Keep README.md updated with usage instructions
+- **README**: `README.md` is the primary user-facing documentation. Review and update it on every commit that adds or changes a major or minor feature. Keep it lean and to the point. If detailed documentation is needed, create `*.md` files in the `docs/` folder and link from `README.md`.
 
 ## Git Hooks
 
