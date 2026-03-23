@@ -54,17 +54,17 @@ The configuration file uses three top-level sections:
 
 # 1. Global defaults – inherited by all checks
 defaults:
-  die-on-error: true   # stop after the first failing wave
-  timeout: 5m          # default per-check timeout (Go duration string)
-  verbose: false       # print command output for every check (not just failures)
+  die-on-error: true # stop after the first failing wave
+  timeout: 5m # default per-check timeout (Go duration string)
+  verbose: false # print command output for every check (not just failures)
 
 # 2. Inventory – the library of named checks
 inventory:
   - id: "build"
-    name: "Build"           # human-readable label (optional; falls back to id)
+    name: "Build" # human-readable label (optional; falls back to id)
     command: "make build"
-    timeout: 10m            # per-check timeout override (optional)
-    die-on-error: false     # per-check die-on-error override (optional)
+    timeout: 10m # per-check timeout override (optional)
+    die-on-error: false # per-check die-on-error override (optional)
 
   - id: "coverage"
     name: "Unit Test with Coverage"
@@ -74,7 +74,7 @@ inventory:
 waves:
   - id: "static"
     name: "Static Analysis & Build"
-    parallel: true   # run all checks in this wave concurrently
+    parallel: true # run all checks in this wave concurrently
     checks:
       - "build"
 
@@ -87,20 +87,20 @@ waves:
 
 ### Field reference
 
-| Field | Required | Description |
-| --- | --- | --- |
-| `defaults.die-on-error` | no | Stop after the first wave that has a failure. Default: `false`. |
-| `defaults.timeout` | no | Fallback timeout for every check. Go duration string (e.g. `5m`, `30s`). Default: `5m`. |
-| `defaults.verbose` | no | Print full command output for all checks. Default: `false` (CI: `true`). |
-| `inventory[].id` | **yes** | Unique identifier, referenced by waves. |
-| `inventory[].name` | no | Display name shown in output. |
-| `inventory[].command` | **yes** | Shell command to execute. |
-| `inventory[].timeout` | no | Override `defaults.timeout` for this check. |
-| `inventory[].die-on-error` | no | Override `defaults.die-on-error` for this check. |
-| `waves[].id` | **yes** | Unique wave identifier. |
-| `waves[].name` | no | Display name for the wave. |
-| `waves[].parallel` | no | When `true`, all checks in the wave run concurrently. Default: `false`. |
-| `waves[].checks` | **yes** | List of inventory `id` values to execute. |
+| Field                      | Required | Description                                                                             |
+| -------------------------- | -------- | --------------------------------------------------------------------------------------- |
+| `defaults.die-on-error`    | no       | Stop after the first wave that has a failure. Default: `false`.                         |
+| `defaults.timeout`         | no       | Fallback timeout for every check. Go duration string (e.g. `5m`, `30s`). Default: `5m`. |
+| `defaults.verbose`         | no       | Print full command output for all checks. Default: `false` (CI: `true`).                |
+| `inventory[].id`           | **yes**  | Unique identifier, referenced by waves.                                                 |
+| `inventory[].name`         | no       | Display name shown in output.                                                           |
+| `inventory[].command`      | **yes**  | Shell command to execute.                                                               |
+| `inventory[].timeout`      | no       | Override `defaults.timeout` for this check.                                             |
+| `inventory[].die-on-error` | no       | Override `defaults.die-on-error` for this check.                                        |
+| `waves[].id`               | **yes**  | Unique wave identifier.                                                                 |
+| `waves[].name`             | no       | Display name for the wave.                                                              |
+| `waves[].parallel`         | no       | When `true`, all checks in the wave run concurrently. Default: `false`.                 |
+| `waves[].checks`           | **yes**  | List of inventory `id` values to execute.                                               |
 
 ### Config file discovery
 
