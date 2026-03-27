@@ -1,4 +1,4 @@
-<!-- cspell:ignore insitu markdownlint cspell golangci -->
+<!-- cspell:ignore insitu markdownlint cspell golangci boilerplates -->
 
 # gh-insitu
 
@@ -41,6 +41,9 @@ gh insitu run
 
 # Run a specific wave
 gh insitu run static
+
+# Apply a boilerplate commit from another repo
+gh insitu boilerplate --repo lakruzz/boilerplates --ref cspell
 ```
 
 ---
@@ -152,6 +155,34 @@ gh insitu run trunk-worthy --mark-pending
 - Each check result is automatically reported as a [GitHub commit status](https://docs.github.com/en/rest/commits/statuses).
 - Output is wrapped in `::group::` / `::endgroup::` for collapsible log sections.
 - Use `--mark-pending` as an early step to show checks as pending while the workflow runs.
+
+---
+
+### `insitu boilerplate`
+
+Fetch the tip commit of a branch (or any ref) from a remote GitHub repository and apply its diff to the current working tree. This is the equivalent of:
+
+```bash
+git show <sha> --no-color > template.patch
+git apply --reject template.patch
+```
+
+Files that already exist are merged where possible. Conflicts are saved as `.rej` files for manual resolution.
+
+By default the command refuses to run on a dirty working tree. Use `--allow-dirty` to skip that guard.
+
+```bash
+gh insitu boilerplate --repo lakruzz/boilerplates --ref cspell
+gh insitu boilerplate --repo org/templates --ref main --allow-dirty
+```
+
+| Flag            | Required | Description                                               |
+| --------------- | -------- | --------------------------------------------------------- |
+| `--repo`        | **yes**  | Source repository in `owner/repo` format.                 |
+| `--ref`         | no       | Branch, tag, or commit SHA to fetch. Default: `HEAD`.     |
+| `--allow-dirty` | no       | Skip the clean working-tree check before applying.        |
+
+A GitHub token must be available via `GH_TOKEN` or `GITHUB_TOKEN`.
 
 ---
 
