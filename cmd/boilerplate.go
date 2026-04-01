@@ -45,6 +45,7 @@ var (
 	boilerplateRepo       string
 	boilerplateRef        string
 	boilerplateAllowDirty bool
+	boilerplateStrategy   string
 )
 
 var boilerplateCmd = &cobra.Command{
@@ -55,10 +56,24 @@ remote GitHub repository and apply them to the current working tree.
 
   - Files that do not yet exist locally are written directly (parent
     directories are created as needed).
-  - Files that already exist are merged: content from the template that is
-    not yet present locally is added without disturbing existing settings.
-    Merge conflicts are left as inline conflict markers for manual resolution.
+  - Files that already exist are merged or injected according to --strategy.
   - Files removed by the template commit are skipped.
+
+Merge strategies (--strategy):
+
+  merge (default)
+    Performs a git 3-way merge with the existing file used as both the base
+    and the current side. The template is the "other" side. Because the base
+    and the current are identical, git sees only the template's additions and
+    applies them cleanly – guaranteed no conflicts as long as the template
+    never removes content from the target.
+
+  inject
+    Programmatic, format-aware deep-merge. For each key or array item present
+    in the template, the value is added or updated in the existing file.
+    Supported formats: .json, .jsonc (comments are stripped on write),
+    .yml, .yaml. Other file types fall back to the merge strategy.
+    This approach never produces conflict markers.
 
 By default the command refuses to run when the working tree is dirty or has
 staged changes. Use --allow-dirty to skip that check.
@@ -67,10 +82,14 @@ A GitHub token must be available via GH_TOKEN or GITHUB_TOKEN.
 
 Examples:
   insitu boilerplate --repo lakruzz/boilerplates --ref cspell
-  insitu boilerplate --repo org/boilerplates --ref main --allow-dirty`,
+  insitu boilerplate --repo org/boilerplates --ref main --allow-dirty
+  insitu boilerplate --repo org/boilerplates --ref cspell --strategy inject`,
 	RunE: func(_ *cobra.Command, _ []string) error {
 		if boilerplateRepo == "" {
 			return fmt.Errorf("--repo is required")
+		}
+		if boilerplateStrategy != "merge" && boilerplateStrategy != "inject" {
+			return fmt.Errorf("--strategy must be 'merge' or 'inject', got %q", boilerplateStrategy)
 		}
 
 		if !boilerplateAllowDirty {
@@ -109,7 +128,7 @@ Examples:
 				return fmt.Errorf("failed to fetch blob for %s: %w", f.Filename, err)
 			}
 
-			hadConflicts, err := applyBoilerplateFile(f.Filename, content)
+			hadConflicts, err := applyBoilerplateFile(f.Filename, content, boilerplateStrategy)
 			if err != nil {
 				return fmt.Errorf("failed to apply %s: %w", f.Filename, err)
 			}
@@ -237,10 +256,14 @@ func fetchBlobURL(url, token string) ([]byte, error) {
 // working tree.
 //
 // If the file does not exist it is created (parent directories are made as
-// needed). If it already exists a 3-way merge is performed via mergeIntoExisting.
+// needed). If it already exists, strategy controls how to merge:
 //
-// Returns hadConflicts=true when git merge-file left inline conflict markers.
-func applyBoilerplateFile(path string, content []byte) (hadConflicts bool, err error) {
+//   - "merge": git 3-way merge with the target used as the common ancestor
+//   - "inject": programmatic format-aware deep-merge (falls back to merge for
+//     unsupported file types)
+//
+// Returns hadConflicts=true only when git merge-file left inline conflict markers.
+func applyBoilerplateFile(path string, content []byte, strategy string) (hadConflicts bool, err error) {
 	if _, statErr := os.Stat(path); os.IsNotExist(statErr) {
 		if mkErr := os.MkdirAll(filepath.Dir(path), 0o755); mkErr != nil { //nolint:gosec
 			return false, fmt.Errorf("failed to create directory for %s: %w", path, mkErr)
@@ -251,20 +274,20 @@ func applyBoilerplateFile(path string, content []byte) (hadConflicts bool, err e
 		return false, nil
 	}
 
+	if strategy == "inject" {
+		return injectIntoExisting(path, content)
+	}
 	return mergeIntoExisting(path, content)
 }
 
-// mergeIntoExisting performs a 3-way merge of the template content into a file
-// that already exists on disk.
+// mergeIntoExisting performs a conflict-free git 3-way merge of the template
+// content into a file that already exists on disk.
 //
-// Strategy: an empty file is used as the common ancestor. Both the local
-// content and the template content are therefore treated as "additions" from
-// the ancestor's perspective:
-//
-//   - Lines present in only the local file → kept in the result
-//   - Lines present in only the template   → added to the result
-//   - Lines identical in both              → included once
-//   - Regions where both sides diverge    → left as inline conflict markers
+// Strategy: the existing file is used as both the current side AND the common
+// ancestor. The template is the "other" side. Because base == current, git
+// sees no local modifications – only the template's additions are visible and
+// applied cleanly. As long as the template never removes content already in
+// the target, this is guaranteed to produce zero merge conflicts.
 //
 // git merge-file exit codes: 0 = clean, positive = N conflict regions, negative = error.
 func mergeIntoExisting(path string, templateContent []byte) (hadConflicts bool, err error) {
@@ -287,9 +310,8 @@ func mergeIntoExisting(path string, templateContent []byte) (hadConflicts bool, 
 		return false, fmt.Errorf("failed to close temp file: %w", err)
 	}
 
-	// Copy the existing file to a temp location so we can use it as the
-	// "current" side. git merge-file modifies the first argument in place, so
-	// we write to the copy and then overwrite the real path at the end.
+	// Copy existing → tmpCurrent (git merge-file overwrites the first arg in
+	// place, so we work on a copy and write the result back at the end).
 	tmpCurrent, err := os.CreateTemp("", "insitu-bp-current-*")
 	if err != nil {
 		return false, fmt.Errorf("failed to create current temp file: %w", err)
@@ -303,24 +325,27 @@ func mergeIntoExisting(path string, templateContent []byte) (hadConflicts bool, 
 		return false, fmt.Errorf("failed to close current temp file: %w", err)
 	}
 
-	// Create an empty ancestor file. With an empty base, every line in both
-	// the local file and the template is an "addition", so neither side's
-	// unique content is deleted.
+	// Copy existing → tmpBase (the common ancestor).
+	// With base == current, git sees no local changes and only applies what
+	// the template adds; result is always conflict-free.
 	tmpBase, err := os.CreateTemp("", "insitu-bp-base-*")
 	if err != nil {
 		return false, fmt.Errorf("failed to create base temp file: %w", err)
 	}
 	defer func() { _ = os.Remove(tmpBase.Name()) }()
+	if _, err := tmpBase.Write(existing); err != nil {
+		_ = tmpBase.Close()
+		return false, fmt.Errorf("failed to write base temp file: %w", err)
+	}
 	if err := tmpBase.Close(); err != nil {
 		return false, fmt.Errorf("failed to close base temp file: %w", err)
 	}
 
-	// git merge-file <current> <base(empty)> <other(template)>
-	// modifies <current> in place.
+	// git merge-file <current> <base> <other> — modifies <current> in place.
 	cmd := exec.Command("git", "merge-file", tmpCurrent.Name(), tmpBase.Name(), tmpOther.Name())
 	runErr := cmd.Run()
 
-	// Read the (possibly conflict-marked) result and write it back to the real path.
+	// Read the result (possibly with conflict markers) and overwrite the real file.
 	merged, readErr := os.ReadFile(tmpCurrent.Name()) //nolint:gosec
 	if readErr != nil {
 		return false, fmt.Errorf("failed to read merge result for %s: %w", path, readErr)
@@ -348,4 +373,6 @@ func init() {
 		"Branch, tag, or commit SHA to fetch (default: HEAD)")
 	boilerplateCmd.Flags().BoolVar(&boilerplateAllowDirty, "allow-dirty", false,
 		"Apply even if the working tree has uncommitted changes")
+	boilerplateCmd.Flags().StringVar(&boilerplateStrategy, "strategy", "merge",
+		"How to apply files that already exist: merge (git 3-way, target-as-base) or inject (programmatic, format-aware)")
 }

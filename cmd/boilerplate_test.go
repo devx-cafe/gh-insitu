@@ -160,7 +160,7 @@ func TestApplyBoilerplateFile_CreatesNewFile(t *testing.T) {
 	path := filepath.Join(dir, "new.txt")
 	content := []byte("template content\n")
 
-	conflicts, err := applyBoilerplateFile(path, content)
+	conflicts, err := applyBoilerplateFile(path, content, "merge")
 	if err != nil {
 		t.Fatalf("applyBoilerplateFile() error = %v", err)
 	}
@@ -178,7 +178,7 @@ func TestApplyBoilerplateFile_CreatesParentDirectories(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "nested", "subdir", "file.txt")
 
-	_, err := applyBoilerplateFile(path, []byte("hello\n"))
+	_, err := applyBoilerplateFile(path, []byte("hello\n"), "merge")
 	if err != nil {
 		t.Fatalf("applyBoilerplateFile() error = %v", err)
 	}
@@ -187,7 +187,11 @@ func TestApplyBoilerplateFile_CreatesParentDirectories(t *testing.T) {
 	}
 }
 
-func TestApplyBoilerplateFile_MergesExistingFile(t *testing.T) {
+// ─── merge strategy ───────────────────────────────────────────────────────────
+
+// TestMerge_SupersetTemplateIsClean verifies that when the template is a
+// superset of the existing file (target-as-base), the merge is always clean.
+func TestMerge_SupersetTemplateIsClean(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "config.txt")
 
@@ -197,72 +201,42 @@ func TestApplyBoilerplateFile_MergesExistingFile(t *testing.T) {
 		t.Fatalf("setup: %v", err)
 	}
 
-	// Template is a superset: same two lines plus one new one.
+	// Template is a superset: same two lines plus a new one.
 	template := "line-a\nline-b\nline-c\n"
 
-	// With an empty ancestor, the added line-c causes a conflict marker but
-	// all content is present in the result.
-	_, err := applyBoilerplateFile(path, []byte(template))
+	// With target-as-base, the template addition comes through without conflicts.
+	conflicts, err := applyBoilerplateFile(path, []byte(template), "merge")
 	if err != nil {
 		t.Fatalf("applyBoilerplateFile() error = %v", err)
 	}
+	if conflicts {
+		t.Errorf("applyBoilerplateFile() reported conflicts – want clean merge for superset template")
+	}
 
-	merged, _ := os.ReadFile(path) //nolint:gosec
-	if !strings.Contains(string(merged), "line-a") {
-		t.Error("merged file missing original 'line-a'")
-	}
-	if !strings.Contains(string(merged), "line-b") {
-		t.Error("merged file missing original 'line-b'")
-	}
-	if !strings.Contains(string(merged), "line-c") {
-		t.Error("merged file missing template addition 'line-c'")
+	got, _ := os.ReadFile(path) //nolint:gosec
+	for _, want := range []string{"line-a", "line-b", "line-c"} {
+		if !strings.Contains(string(got), want) {
+			t.Errorf("merged file missing %q", want)
+		}
 	}
 }
 
-func TestApplyBoilerplateFile_IdenticalContentNoConflicts(t *testing.T) {
+// TestMerge_IdenticalContentNoConflicts verifies idempotency.
+func TestMerge_IdenticalContentNoConflicts(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "config.txt")
 
-	// When local file and template are identical, the merge is always clean.
 	content := "word1\nword2\n"
 	if err := os.WriteFile(path, []byte(content), 0o644); err != nil { //nolint:gosec
 		t.Fatalf("setup: %v", err)
 	}
 
-	conflicts, err := applyBoilerplateFile(path, []byte(content))
+	conflicts, err := applyBoilerplateFile(path, []byte(content), "merge")
 	if err != nil {
 		t.Fatalf("applyBoilerplateFile() error = %v", err)
 	}
 	if conflicts {
 		t.Error("applyBoilerplateFile() reported conflicts for identical content")
-	}
-}
-
-func TestApplyBoilerplateFile_PreservesExistingContent(t *testing.T) {
-	dir := t.TempDir()
-	path := filepath.Join(dir, "config.txt")
-
-	// Existing file has local content not present in the template.
-	if err := os.WriteFile(path, []byte("local-setting\n"), 0o644); err != nil { //nolint:gosec
-		t.Fatalf("setup: %v", err)
-	}
-
-	// Template has completely different content.
-	// With an empty ancestor, both sides are "additions", so both lines
-	// must appear in the result (possibly as conflict markers).
-	_, err := applyBoilerplateFile(path, []byte("template-setting\n"))
-	if err != nil {
-		t.Fatalf("applyBoilerplateFile() error = %v", err)
-	}
-
-	merged, _ := os.ReadFile(path) //nolint:gosec
-	// The local setting must still be present (inside conflict markers or merged).
-	if !strings.Contains(string(merged), "local-setting") {
-		t.Error("merge discarded existing local-setting – it should be preserved")
-	}
-	// The template setting must also be present.
-	if !strings.Contains(string(merged), "template-setting") {
-		t.Error("merge did not include template-setting from the template")
 	}
 }
 

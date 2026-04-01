@@ -165,21 +165,31 @@ Fetch the files changed by the tip commit of a branch (or any ref) from a remote
 **For each file in the boilerplate commit:**
 
 - **File does not exist locally** → written directly (parent directories are created as needed).
-- **File already exists** → a 3-way merge is performed using an empty common ancestor. Both the local content and the template content are treated as "additions". Lines present in only one side are kept; lines present in both are kept once; regions where the two sides diverge are left as inline `<<<<<<<` conflict markers for manual resolution.
+- **File already exists** → merged or injected according to `--strategy` (see below).
 - **File is removed by the commit** → skipped.
+
+**`--strategy merge` (default)**
+
+Git 3-way merge where the existing file is used as the common ancestor. Because base = current, git sees only the template's additions and applies them cleanly — guaranteed no conflicts as long as the template never removes content.
+
+**`--strategy inject`**
+
+Programmatic deep-merge: for each key or array item in the template, add/update it in the existing file. Supported formats: `.json`, `.jsonc` (comments are stripped on write), `.yml`, `.yaml`. Other file types fall back to the `merge` strategy. This approach never produces conflict markers.
 
 By default the command refuses to run on a dirty working tree. Use `--allow-dirty` to skip that guard.
 
 ```bash
 gh insitu boilerplate --repo lakruzz/boilerplates --ref cspell
 gh insitu boilerplate --repo org/templates --ref main --allow-dirty
+gh insitu boilerplate --repo org/templates --ref cspell --strategy inject
 ```
 
-| Flag            | Required | Description                                               |
-| --------------- | -------- | --------------------------------------------------------- |
-| `--repo`        | **yes**  | Source repository in `owner/repo` format.                 |
-| `--ref`         | no       | Branch, tag, or commit SHA to fetch. Default: `HEAD`.     |
-| `--allow-dirty` | no       | Skip the clean working-tree check before applying.        |
+| Flag            | Required | Description                                                                 |
+| --------------- | -------- | --------------------------------------------------------------------------- |
+| `--repo`        | **yes**  | Source repository in `owner/repo` format.                                   |
+| `--ref`         | no       | Branch, tag, or commit SHA to fetch. Default: `HEAD`.                       |
+| `--strategy`    | no       | `merge` (default) or `inject`. See description above.                       |
+| `--allow-dirty` | no       | Skip the clean working-tree check before applying.                          |
 
 A GitHub token must be available via `GH_TOKEN` or `GITHUB_TOKEN`.
 
