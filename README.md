@@ -184,12 +184,12 @@ gh insitu boilerplate --repo org/templates --ref main --allow-dirty
 gh insitu boilerplate --repo org/templates --ref cspell --strategy inject
 ```
 
-| Flag            | Required | Description                                                                 |
-| --------------- | -------- | --------------------------------------------------------------------------- |
-| `--repo`        | **yes**  | Source repository in `owner/repo` format.                                   |
-| `--ref`         | no       | Branch, tag, or commit SHA to fetch. Default: `HEAD`.                       |
-| `--strategy`    | no       | `merge` (default) or `inject`. See description above.                       |
-| `--allow-dirty` | no       | Skip the clean working-tree check before applying.                          |
+| Flag            | Required | Description                                           |
+| --------------- | -------- | ----------------------------------------------------- |
+| `--repo`        | **yes**  | Source repository in `owner/repo` format.             |
+| `--ref`         | no       | Branch, tag, or commit SHA to fetch. Default: `HEAD`. |
+| `--strategy`    | no       | `merge` (default) or `inject`. See description above. |
+| `--allow-dirty` | no       | Skip the clean working-tree check before applying.    |
 
 A GitHub token must be available via `GH_TOKEN` or `GITHUB_TOKEN`.
 
