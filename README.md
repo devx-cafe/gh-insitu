@@ -160,14 +160,13 @@ gh insitu run trunk-worthy --mark-pending
 
 ### `insitu boilerplate`
 
-Fetch the tip commit of a branch (or any ref) from a remote GitHub repository and apply its diff to the current working tree. This is the equivalent of:
+Fetch the files changed by the tip commit of a branch (or any ref) from a remote GitHub repository and apply them to the current working tree.
 
-```bash
-git show <sha> --no-color > template.patch
-git apply --reject template.patch
-```
+**For each file in the boilerplate commit:**
 
-Files that already exist are merged where possible. Conflicts are saved as `.rej` files for manual resolution.
+- **File does not exist locally** → written directly (parent directories are created as needed).
+- **File already exists** → a 3-way merge is performed using an empty common ancestor. Both the local content and the template content are treated as "additions". Lines present in only one side are kept; lines present in both are kept once; regions where the two sides diverge are left as inline `<<<<<<<` conflict markers for manual resolution.
+- **File is removed by the commit** → skipped.
 
 By default the command refuses to run on a dirty working tree. Use `--allow-dirty` to skip that guard.
 
