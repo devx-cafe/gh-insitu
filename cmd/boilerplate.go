@@ -62,17 +62,25 @@ remote GitHub repository and apply them to the current working tree.
 Merge strategies (--strategy):
 
   merge (default)
-    Performs a git 3-way merge with the existing file used as both the base
-    and the current side. The template is the "other" side. Because the base
-    and the current are identical, git sees only the template's additions and
-    applies them cleanly – guaranteed no conflicts as long as the template
-    never removes content from the target.
+    git 3-way merge where the template (source) is used as BOTH the common
+    ancestor and the "other" side, and the local file is the "current" side.
+    Because base == other (both are the template), git sees no incoming
+    changes from the template — only local additions and modifications
+    relative to the template are visible. All existing local content is
+    preserved. Template-only lines (never present locally) are not forced in.
+
+  combine
+    git 3-way merge with an empty common ancestor and the --union flag.
+    The result is the full union of both the local file and the template:
+    every line from both sides is included, in order. Zero conflict markers
+    are ever produced. Use this when you want to accumulate boilerplate
+    additions on top of existing content.
 
   inject
     Programmatic, format-aware deep-merge. For each key or array item present
     in the template, the value is added or updated in the existing file.
     Supported formats: .json, .jsonc (comments are stripped on write),
-    .yml, .yaml. Other file types fall back to the merge strategy.
+    .yml, .yaml. Other file types fall back to the combine strategy.
     This approach never produces conflict markers.
 
 By default the command refuses to run when the working tree is dirty or has
@@ -83,13 +91,14 @@ A GitHub token must be available via GH_TOKEN or GITHUB_TOKEN.
 Examples:
   insitu boilerplate --repo lakruzz/boilerplates --ref cspell
   insitu boilerplate --repo org/boilerplates --ref main --allow-dirty
+  insitu boilerplate --repo org/boilerplates --ref cspell --strategy combine
   insitu boilerplate --repo org/boilerplates --ref cspell --strategy inject`,
 	RunE: func(_ *cobra.Command, _ []string) error {
 		if boilerplateRepo == "" {
 			return fmt.Errorf("--repo is required")
 		}
-		if boilerplateStrategy != "merge" && boilerplateStrategy != "inject" {
-			return fmt.Errorf("--strategy must be 'merge' or 'inject', got %q", boilerplateStrategy)
+		if boilerplateStrategy != "merge" && boilerplateStrategy != "inject" && boilerplateStrategy != "combine" {
+			return fmt.Errorf("--strategy must be 'merge', 'combine', or 'inject', got %q", boilerplateStrategy)
 		}
 
 		if !boilerplateAllowDirty {
@@ -258,9 +267,14 @@ func fetchBlobURL(url, token string) ([]byte, error) {
 // If the file does not exist it is created (parent directories are made as
 // needed). If it already exists, strategy controls how to merge:
 //
-//   - "merge": git 3-way merge with the target used as the common ancestor
-//   - "inject": programmatic format-aware deep-merge (falls back to merge for
-//     unsupported file types)
+//   - "merge": git 3-way merge with the template used as both the base and
+//     the other side, and the local file as the current side. All local
+//     content is preserved; only local additions relative to the template
+//     survive (template-only lines are not forced in).
+//   - "combine": git 3-way merge with an empty base and --union, giving the
+//     full union of both sides with zero conflict markers.
+//   - "inject": programmatic format-aware deep-merge (falls back to combine
+//     for unsupported file types).
 //
 // Returns hadConflicts=true only when git merge-file left inline conflict markers.
 func applyBoilerplateFile(path string, content []byte, strategy string) (hadConflicts bool, err error) {
@@ -274,20 +288,29 @@ func applyBoilerplateFile(path string, content []byte, strategy string) (hadConf
 		return false, nil
 	}
 
-	if strategy == "inject" {
+	switch strategy {
+	case "inject":
 		return injectIntoExisting(path, content)
+	case "combine":
+		return combineIntoExisting(path, content)
+	default: // "merge"
+		return mergeIntoExisting(path, content)
 	}
-	return mergeIntoExisting(path, content)
 }
 
-// mergeIntoExisting performs a conflict-free git 3-way merge of the template
-// content into a file that already exists on disk.
+// mergeIntoExisting performs a non-destructive git 3-way merge that preserves
+// all existing local content.
 //
-// Strategy: the existing file is used as both the current side AND the common
-// ancestor. The template is the "other" side. Because base == current, git
-// sees no local modifications – only the template's additions are visible and
-// applied cleanly. As long as the template never removes content already in
-// the target, this is guaranteed to produce zero merge conflicts.
+// The template (source) is used as BOTH the common ancestor (base) AND the
+// "other" side. The local file is the "current" side. Because base == other,
+// git sees no changes coming from the template side — only the local file's
+// additions and modifications relative to the template are visible. The result
+// is the local file's content preserved in full.
+//
+// This is useful when the local file is a modified fork of the template: no
+// local content is ever deleted. Template-only lines (lines the local file
+// never had) do not appear in the result. Use --strategy combine to get the
+// full union of both sides.
 //
 // git merge-file exit codes: 0 = clean, positive = N conflict regions, negative = error.
 func mergeIntoExisting(path string, templateContent []byte) (hadConflicts bool, err error) {
@@ -296,22 +319,9 @@ func mergeIntoExisting(path string, templateContent []byte) (hadConflicts bool, 
 		return false, fmt.Errorf("failed to read %s: %w", path, err)
 	}
 
-	// Write the template content to a temp file ("other" side of the merge).
-	tmpOther, err := os.CreateTemp("", "insitu-bp-other-*")
-	if err != nil {
-		return false, fmt.Errorf("failed to create temp file: %w", err)
-	}
-	defer func() { _ = os.Remove(tmpOther.Name()) }()
-	if _, err := tmpOther.Write(templateContent); err != nil {
-		_ = tmpOther.Close()
-		return false, fmt.Errorf("failed to write temp file: %w", err)
-	}
-	if err := tmpOther.Close(); err != nil {
-		return false, fmt.Errorf("failed to close temp file: %w", err)
-	}
-
-	// Copy existing → tmpCurrent (git merge-file overwrites the first arg in
-	// place, so we work on a copy and write the result back at the end).
+	// Write the local file to a temp location (the "current" side).
+	// git merge-file modifies the first argument in place, so we work on a
+	// copy and write the result back at the end.
 	tmpCurrent, err := os.CreateTemp("", "insitu-bp-current-*")
 	if err != nil {
 		return false, fmt.Errorf("failed to create current temp file: %w", err)
@@ -325,15 +335,13 @@ func mergeIntoExisting(path string, templateContent []byte) (hadConflicts bool, 
 		return false, fmt.Errorf("failed to close current temp file: %w", err)
 	}
 
-	// Copy existing → tmpBase (the common ancestor).
-	// With base == current, git sees no local changes and only applies what
-	// the template adds; result is always conflict-free.
+	// Write the template as the common ancestor (base).
 	tmpBase, err := os.CreateTemp("", "insitu-bp-base-*")
 	if err != nil {
 		return false, fmt.Errorf("failed to create base temp file: %w", err)
 	}
 	defer func() { _ = os.Remove(tmpBase.Name()) }()
-	if _, err := tmpBase.Write(existing); err != nil {
+	if _, err := tmpBase.Write(templateContent); err != nil {
 		_ = tmpBase.Close()
 		return false, fmt.Errorf("failed to write base temp file: %w", err)
 	}
@@ -341,11 +349,27 @@ func mergeIntoExisting(path string, templateContent []byte) (hadConflicts bool, 
 		return false, fmt.Errorf("failed to close base temp file: %w", err)
 	}
 
-	// git merge-file <current> <base> <other> — modifies <current> in place.
+	// Write the template as the "other" side too (same as base).
+	// With base == other, git sees no incoming changes from the template side.
+	tmpOther, err := os.CreateTemp("", "insitu-bp-other-*")
+	if err != nil {
+		return false, fmt.Errorf("failed to create other temp file: %w", err)
+	}
+	defer func() { _ = os.Remove(tmpOther.Name()) }()
+	if _, err := tmpOther.Write(templateContent); err != nil {
+		_ = tmpOther.Close()
+		return false, fmt.Errorf("failed to write other temp file: %w", err)
+	}
+	if err := tmpOther.Close(); err != nil {
+		return false, fmt.Errorf("failed to close other temp file: %w", err)
+	}
+
+	// git merge-file <current(local)> <base(template)> <other(template)>
+	// modifies <current> in place.
 	cmd := exec.Command("git", "merge-file", tmpCurrent.Name(), tmpBase.Name(), tmpOther.Name())
 	runErr := cmd.Run()
 
-	// Read the result (possibly with conflict markers) and overwrite the real file.
+	// Read the result and overwrite the real file.
 	merged, readErr := os.ReadFile(tmpCurrent.Name()) //nolint:gosec
 	if readErr != nil {
 		return false, fmt.Errorf("failed to read merge result for %s: %w", path, readErr)
@@ -357,10 +381,86 @@ func mergeIntoExisting(path string, templateContent []byte) (hadConflicts bool, 
 	if runErr != nil {
 		var exitErr *exec.ExitError
 		if errors.As(runErr, &exitErr) && exitErr.ExitCode() > 0 {
-			// Positive exit code = number of conflict regions.
 			return true, nil
 		}
 		return false, fmt.Errorf("git merge-file failed for %s: %w", path, runErr)
+	}
+	return false, nil
+}
+
+// combineIntoExisting performs a git 3-way merge with an empty common ancestor
+// and the --union flag, giving the full union of both sides without conflict
+// markers.
+//
+// Because the base is empty, every line in both the local file and the template
+// is an "addition". The --union flag resolves all such conflicts by including
+// content from both sides, so the result contains all lines from both the
+// local file and the template. No conflict markers are ever produced.
+func combineIntoExisting(path string, templateContent []byte) (hadConflicts bool, err error) {
+	existing, err := os.ReadFile(path) //nolint:gosec
+	if err != nil {
+		return false, fmt.Errorf("failed to read %s: %w", path, err)
+	}
+
+	// Write the local file to a temp location (the "current" side).
+	tmpCurrent, err := os.CreateTemp("", "insitu-bp-current-*")
+	if err != nil {
+		return false, fmt.Errorf("failed to create current temp file: %w", err)
+	}
+	defer func() { _ = os.Remove(tmpCurrent.Name()) }()
+	if _, err := tmpCurrent.Write(existing); err != nil {
+		_ = tmpCurrent.Close()
+		return false, fmt.Errorf("failed to write current temp file: %w", err)
+	}
+	if err := tmpCurrent.Close(); err != nil {
+		return false, fmt.Errorf("failed to close current temp file: %w", err)
+	}
+
+	// Empty ancestor: both sides are treated as additions.
+	tmpBase, err := os.CreateTemp("", "insitu-bp-base-*")
+	if err != nil {
+		return false, fmt.Errorf("failed to create base temp file: %w", err)
+	}
+	defer func() { _ = os.Remove(tmpBase.Name()) }()
+	if err := tmpBase.Close(); err != nil {
+		return false, fmt.Errorf("failed to close base temp file: %w", err)
+	}
+
+	// Write the template as the "other" side.
+	tmpOther, err := os.CreateTemp("", "insitu-bp-other-*")
+	if err != nil {
+		return false, fmt.Errorf("failed to create other temp file: %w", err)
+	}
+	defer func() { _ = os.Remove(tmpOther.Name()) }()
+	if _, err := tmpOther.Write(templateContent); err != nil {
+		_ = tmpOther.Close()
+		return false, fmt.Errorf("failed to write other temp file: %w", err)
+	}
+	if err := tmpOther.Close(); err != nil {
+		return false, fmt.Errorf("failed to close other temp file: %w", err)
+	}
+
+	// git merge-file --union <current(local)> <base(empty)> <other(template)>
+	// --union includes both sides' content instead of leaving conflict markers.
+	cmd := exec.Command("git", "merge-file", "--union", tmpCurrent.Name(), tmpBase.Name(), tmpOther.Name())
+	runErr := cmd.Run()
+
+	merged, readErr := os.ReadFile(tmpCurrent.Name()) //nolint:gosec
+	if readErr != nil {
+		return false, fmt.Errorf("failed to read combine result for %s: %w", path, readErr)
+	}
+	if writeErr := os.WriteFile(path, merged, 0o644); writeErr != nil { //nolint:gosec
+		return false, fmt.Errorf("failed to write combine result for %s: %w", path, writeErr)
+	}
+
+	if runErr != nil {
+		var exitErr *exec.ExitError
+		// --union should never leave conflict markers, but handle the exit
+		// code defensively.
+		if errors.As(runErr, &exitErr) && exitErr.ExitCode() > 0 {
+			return true, nil
+		}
+		return false, fmt.Errorf("git merge-file --union failed for %s: %w", path, runErr)
 	}
 	return false, nil
 }
@@ -374,5 +474,5 @@ func init() {
 	boilerplateCmd.Flags().BoolVar(&boilerplateAllowDirty, "allow-dirty", false,
 		"Apply even if the working tree has uncommitted changes")
 	boilerplateCmd.Flags().StringVar(&boilerplateStrategy, "strategy", "merge",
-		"How to apply files that already exist: merge (git 3-way, target-as-base) or inject (programmatic, format-aware)")
+		"How to apply files that already exist: merge (source-as-base, preserves local), combine (empty-base --union, full union), or inject (programmatic, format-aware)")
 }

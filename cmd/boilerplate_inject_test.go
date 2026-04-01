@@ -263,9 +263,9 @@ func TestInjectYAMLFile_MergesNestedMap(t *testing.T) {
 
 // ─── injectIntoExisting – fallback ───────────────────────────────────────────
 
-// TestInjectFallsBackToMergeForUnknownExtension ensures that file types not
-// handled by inject fall back to the git merge strategy gracefully.
-func TestInjectFallsBackToMergeForUnknownExtension(t *testing.T) {
+// TestInjectFallsBackToCombineForUnknownExtension ensures that file types not
+// handled by inject fall back to the combine (union) strategy gracefully.
+func TestInjectFallsBackToCombineForUnknownExtension(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "config.toml")
 
@@ -274,8 +274,8 @@ func TestInjectFallsBackToMergeForUnknownExtension(t *testing.T) {
 		t.Fatalf("setup: %v", err)
 	}
 
-	// Template is a superset – merge strategy should apply it cleanly.
-	template := []byte("key = \"value\"\nextra = \"added\"\n")
+	// Template has an additional key – combine should produce both.
+	template := []byte("extra = \"added\"\n")
 
 	_, err := injectIntoExisting(path, template)
 	if err != nil {
@@ -284,10 +284,13 @@ func TestInjectFallsBackToMergeForUnknownExtension(t *testing.T) {
 
 	got, _ := os.ReadFile(path) //nolint:gosec
 	if !strings.Contains(string(got), "key") {
-		t.Error("fallback merge lost existing key")
+		t.Error("fallback combine lost existing key")
 	}
 	if !strings.Contains(string(got), "extra") {
-		t.Error("fallback merge did not add extra key from template")
+		t.Error("fallback combine did not add extra key from template")
+	}
+	if strings.Contains(string(got), "<<<<<<<") {
+		t.Error("fallback combine produced conflict markers")
 	}
 }
 

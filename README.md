@@ -165,31 +165,36 @@ Fetch the files changed by the tip commit of a branch (or any ref) from a remote
 **For each file in the boilerplate commit:**
 
 - **File does not exist locally** → written directly (parent directories are created as needed).
-- **File already exists** → merged or injected according to `--strategy` (see below).
+- **File already exists** → merged according to `--strategy` (see below).
 - **File is removed by the commit** → skipped.
 
 **`--strategy merge` (default)**
 
-Git 3-way merge where the existing file is used as the common ancestor. Because base = current, git sees only the template's additions and applies them cleanly — guaranteed no conflicts as long as the template never removes content.
+Non-destructive apply. The template is used as BOTH the common ancestor and the "other" side; the local file is "current". Because base == other, git sees no incoming changes from the template — only local additions and modifications survive. All existing local content is preserved; template-only lines are not forced in.
+
+**`--strategy combine`**
+
+Full union. Uses an empty common ancestor and `--union`, so both the local file and the template contribute all their lines. The result contains every line from both sides in order. Zero conflict markers are ever produced.
 
 **`--strategy inject`**
 
-Programmatic deep-merge: for each key or array item in the template, add/update it in the existing file. Supported formats: `.json`, `.jsonc` (comments are stripped on write), `.yml`, `.yaml`. Other file types fall back to the `merge` strategy. This approach never produces conflict markers.
+Programmatic deep-merge: for each key or array item in the template, add/update it in the existing file. Supported formats: `.json`, `.jsonc` (comments are stripped on write), `.yml`, `.yaml`. Other file types fall back to `combine`. Never produces conflict markers.
 
 By default the command refuses to run on a dirty working tree. Use `--allow-dirty` to skip that guard.
 
 ```bash
 gh insitu boilerplate --repo lakruzz/boilerplates --ref cspell
 gh insitu boilerplate --repo org/templates --ref main --allow-dirty
+gh insitu boilerplate --repo org/templates --ref cspell --strategy combine
 gh insitu boilerplate --repo org/templates --ref cspell --strategy inject
 ```
 
-| Flag            | Required | Description                                           |
-| --------------- | -------- | ----------------------------------------------------- |
-| `--repo`        | **yes**  | Source repository in `owner/repo` format.             |
-| `--ref`         | no       | Branch, tag, or commit SHA to fetch. Default: `HEAD`. |
-| `--strategy`    | no       | `merge` (default) or `inject`. See description above. |
-| `--allow-dirty` | no       | Skip the clean working-tree check before applying.    |
+| Flag            | Required | Description                                                       |
+| --------------- | -------- | ----------------------------------------------------------------- |
+| `--repo`        | **yes**  | Source repository in `owner/repo` format.                         |
+| `--ref`         | no       | Branch, tag, or commit SHA to fetch. Default: `HEAD`.             |
+| `--strategy`    | no       | `merge` (default), `combine`, or `inject`. See description above. |
+| `--allow-dirty` | no       | Skip the clean working-tree check before applying.                |
 
 A GitHub token must be available via `GH_TOKEN` or `GITHUB_TOKEN`.
 

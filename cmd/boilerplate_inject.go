@@ -33,9 +33,9 @@ func injectIntoExisting(path string, templateContent []byte) (hadConflicts bool,
 	case ext == ".yml" || ext == ".yaml":
 		return false, injectYAMLFile(path, templateContent)
 	default:
-		// TOML, INI, .gitconfig and all other types: fall back to git merge.
+		// TOML, INI, .gitconfig and all other types: fall back to combine (union).
 		_ = base
-		return mergeIntoExisting(path, templateContent)
+		return combineIntoExisting(path, templateContent)
 	}
 }
 

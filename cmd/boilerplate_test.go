@@ -189,35 +189,65 @@ func TestApplyBoilerplateFile_CreatesParentDirectories(t *testing.T) {
 
 // ─── merge strategy ───────────────────────────────────────────────────────────
 
-// TestMerge_SupersetTemplateIsClean verifies that when the template is a
-// superset of the existing file (target-as-base), the merge is always clean.
-func TestMerge_SupersetTemplateIsClean(t *testing.T) {
+// TestMerge_PreservesLocalContent verifies that the merge strategy keeps all
+// existing local content intact (source-as-base semantics).
+func TestMerge_PreservesLocalContent(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "config.txt")
 
-	// Existing file with two lines.
+	// Local file has two lines.
 	existing := "line-a\nline-b\n"
 	if err := os.WriteFile(path, []byte(existing), 0o644); err != nil { //nolint:gosec
 		t.Fatalf("setup: %v", err)
 	}
 
-	// Template is a superset: same two lines plus a new one.
-	template := "line-a\nline-b\nline-c\n"
+	// Template is the same as local (acts as the common ancestor).
+	// With source-as-base, local content is preserved unchanged.
+	template := "line-a\nline-b\n"
 
-	// With target-as-base, the template addition comes through without conflicts.
 	conflicts, err := applyBoilerplateFile(path, []byte(template), "merge")
 	if err != nil {
 		t.Fatalf("applyBoilerplateFile() error = %v", err)
 	}
 	if conflicts {
-		t.Errorf("applyBoilerplateFile() reported conflicts – want clean merge for superset template")
+		t.Errorf("applyBoilerplateFile() reported conflicts – want clean merge")
 	}
 
 	got, _ := os.ReadFile(path) //nolint:gosec
-	for _, want := range []string{"line-a", "line-b", "line-c"} {
+	for _, want := range []string{"line-a", "line-b"} {
 		if !strings.Contains(string(got), want) {
 			t.Errorf("merged file missing %q", want)
 		}
+	}
+}
+
+// TestMerge_LocalOnlyLinesAreKept verifies that lines in the local file that
+// are not in the template (i.e. local additions relative to the template) are
+// preserved after the merge.
+func TestMerge_LocalOnlyLinesAreKept(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.txt")
+
+	// Local file has an extra line that the template does not have.
+	existing := "line-a\nline-b\nlocal-only\n"
+	if err := os.WriteFile(path, []byte(existing), 0o644); err != nil { //nolint:gosec
+		t.Fatalf("setup: %v", err)
+	}
+
+	// Template is a subset of local.
+	template := "line-a\nline-b\n"
+
+	conflicts, err := applyBoilerplateFile(path, []byte(template), "merge")
+	if err != nil {
+		t.Fatalf("applyBoilerplateFile() error = %v", err)
+	}
+	if conflicts {
+		t.Errorf("applyBoilerplateFile() reported conflicts – want clean merge")
+	}
+
+	got, _ := os.ReadFile(path) //nolint:gosec
+	if !strings.Contains(string(got), "local-only") {
+		t.Error("merge strategy deleted local-only line – it must be preserved")
 	}
 }
 
@@ -237,6 +267,59 @@ func TestMerge_IdenticalContentNoConflicts(t *testing.T) {
 	}
 	if conflicts {
 		t.Error("applyBoilerplateFile() reported conflicts for identical content")
+	}
+}
+
+// ─── combine strategy ─────────────────────────────────────────────────────────
+
+// TestCombine_UnionOfBothSides verifies that combine produces all lines from
+// both the local file and the template without conflict markers.
+func TestCombine_UnionOfBothSides(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.txt")
+
+	existing := "line-a\nline-b\n"
+	if err := os.WriteFile(path, []byte(existing), 0o644); err != nil { //nolint:gosec
+		t.Fatalf("setup: %v", err)
+	}
+
+	template := "line-c\nline-d\n"
+
+	conflicts, err := applyBoilerplateFile(path, []byte(template), "combine")
+	if err != nil {
+		t.Fatalf("applyBoilerplateFile(combine) error = %v", err)
+	}
+	if conflicts {
+		t.Error("combine strategy should never produce conflict markers")
+	}
+
+	got, _ := os.ReadFile(path) //nolint:gosec
+	for _, want := range []string{"line-a", "line-b", "line-c", "line-d"} {
+		if !strings.Contains(string(got), want) {
+			t.Errorf("combine result missing %q", want)
+		}
+	}
+	if strings.Contains(string(got), "<<<<<<<") {
+		t.Error("combine result contains conflict markers")
+	}
+}
+
+// TestCombine_IdenticalContentNoConflicts verifies idempotency.
+func TestCombine_IdenticalContentNoConflicts(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.txt")
+
+	content := "word1\nword2\n"
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil { //nolint:gosec
+		t.Fatalf("setup: %v", err)
+	}
+
+	conflicts, err := applyBoilerplateFile(path, []byte(content), "combine")
+	if err != nil {
+		t.Fatalf("applyBoilerplateFile(combine) error = %v", err)
+	}
+	if conflicts {
+		t.Error("combine strategy reported conflicts for identical content")
 	}
 }
 
