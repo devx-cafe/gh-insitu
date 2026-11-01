@@ -140,8 +140,12 @@ gh insitu run static                     # run only the 'static' wave
 gh insitu run static test                # run 'static' then 'test'
 gh insitu run --plan static test         # preview selected waves; -p is shorthand
 gh insitu run --verbose static           # always print all command output
+gh insitu run --append-only static       # no live redraws (plain append-only output)
+gh insitu run --append-only --verbose static  # full output, no redraws
 gh insitu run trunk-worthy --mark-pending
 ```
+
+In an interactive local terminal, `run` shows every check of a wave with ⏳ and refreshes as checks finish (finished first, in completion order). GitHub Actions and redirected/piped output keep append-only logs; `--append-only` forces that mode locally. `--verbose` (command output) is independent of `--append-only` (no redraws).
 
 ### `insitu task`
 
