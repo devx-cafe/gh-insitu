@@ -33,14 +33,17 @@ gh insitu --help
 # Bootstrap a starter .insitu.yml and a pre-commit hook
 gh insitu init
 
-# Validate the config and preview the execution plan
-gh insitu plan
+# Preview selected waves without running checks
+gh insitu run --plan static test
 
-# Run all waves
-gh insitu run
+# Run selected waves in order
+gh insitu run static test
 
 # Run a specific wave
 gh insitu run static
+
+# Run an inventory entry directly
+gh insitu task build
 
 # Apply a boilerplate commit from another repo
 gh insitu boilerplate --repo lakruzz/boilerplates --ref cspell
@@ -110,8 +113,8 @@ waves:
 By default every command looks for `.insitu.yml` in the current working directory. You can override this with the `--config` / `-c` flag on any command:
 
 ```bash
-gh insitu run --config path/to/custom.yml
-gh insitu plan -c ci/checks.yml
+gh insitu run --config path/to/custom.yml static
+gh insitu run --plan -c ci/checks.yml static
 ```
 
 ---
@@ -120,7 +123,7 @@ gh insitu plan -c ci/checks.yml
 
 ### `insitu init`
 
-Creates a starter `.insitu.yml` and installs a `.git/hooks/pre-commit` hook that runs `insitu run` before every commit.
+Creates a starter `.insitu.yml` and installs a `.git/hooks/pre-commit` hook that runs its starter waves before every commit.
 
 ```bash
 gh insitu init               # create .insitu.yml + pre-commit hook
@@ -128,27 +131,30 @@ gh insitu init --force       # overwrite an existing .insitu.yml
 gh insitu init -c custom.yml # write config to a custom path
 ```
 
-### `insitu plan`
-
-Validates the configuration and prints the resolved execution plan (timeouts, commands, die-on-error settings). No checks are actually run.
-
-```bash
-gh insitu plan
-gh insitu plan --config custom.yml
-```
-
 ### `insitu run`
 
-Executes one or more waves. Without arguments all waves run in order.
+Executes one or more explicitly selected waves, in the order supplied. At least one wave ID is required.
 
 ```bash
-gh insitu run                            # run all waves
 gh insitu run static                     # run only the 'static' wave
 gh insitu run static test                # run 'static' then 'test'
-gh insitu run --verbose                  # always print all command output
-gh insitu run --mark-pending             # mark all checks as 'pending' (CI only)
+gh insitu run --plan static test         # preview selected waves; -p is shorthand
+gh insitu run --verbose static           # always print all command output
 gh insitu run trunk-worthy --mark-pending
 ```
+
+### `insitu task`
+
+Executes one inventory entry directly, even when no wave references it. `--timeout` and `--die-on-error` override the task's effective configuration for this invocation only.
+
+```bash
+gh insitu task build
+gh insitu task build --timeout 30s
+gh insitu task build --die-on-error=false
+gh insitu task --plan build              # preview; -p is shorthand
+```
+
+`--plan` on either `run` or `task` validates the configuration and selected IDs, then displays their resolved commands and effective settings without executing checks.
 
 **Inside a GitHub Actions workflow** (`GITHUB_ACTIONS=true`):
 
@@ -204,12 +210,12 @@ A GitHub token must be available via `GH_TOKEN` or `GITHUB_TOKEN`.
 
 ```yaml
 - name: Mark checks pending
-  run: gh insitu run --mark-pending
+  run: gh insitu run trunk-worthy test --mark-pending
   env:
     GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
 - name: Run all checks
-  run: gh insitu run
+  run: gh insitu run trunk-worthy test
   env:
     GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 ```

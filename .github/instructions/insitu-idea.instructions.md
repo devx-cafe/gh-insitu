@@ -106,8 +106,9 @@ The tool detects its environment to adjust behavior:
 ## **4\. Proposed CLI Commands**
 
 - gh insitu init: Bootstrap the configuration file and install .git/hooks/pre-commit pointing to the run command.  
-- gh insitu run \[wave-id\]: Execute specific waves. If no ID is provided, it executes all waves sequentially.  
-- gh insitu plan: A dry-run mode that validates the YAML schema and lists the resolved execution order and command overrides.
+- gh insitu run \[wave-id\]: Execute one or more explicitly selected waves.
+- gh insitu task \[inventory-id\]: Execute one inventory entry directly.
+- gh insitu run --plan \[wave-id\] / gh insitu task --plan \[inventory-id\]: Preview selected targets without executing them.
 
 ## **5\. Transitioning from Bash to Go**
 

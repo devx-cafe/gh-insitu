@@ -30,11 +30,11 @@ func loadRunnerConfig(t *testing.T) *config.Config {
 // discardFormatter is a no-op Formatter used to silence output in tests.
 type discardFormatter struct{}
 
-func (discardFormatter) WaveStart(_, _ string)                                      {}
-func (discardFormatter) WaveEnd(_ string, _ bool)                                   {}
-func (discardFormatter) CheckStart(_, _ string)                                     {}
-func (discardFormatter) CheckEnd(_, _ string, _ bool, _ []byte, _ time.Duration)    {}
-func (discardFormatter) PrintSummary(_ bool)                                        {}
+func (discardFormatter) WaveStart(_, _ string)                                   {}
+func (discardFormatter) WaveEnd(_ string, _ bool)                                {}
+func (discardFormatter) CheckStart(_, _ string)                                  {}
+func (discardFormatter) CheckEnd(_, _ string, _ bool, _ []byte, _ time.Duration) {}
+func (discardFormatter) PrintSummary(_ bool)                                     {}
 
 var _ ui.Formatter = discardFormatter{}
 
@@ -139,6 +139,61 @@ func TestRunner_UnknownWaveID(t *testing.T) {
 	_, err := r.RunWaves([]string{"no-such-wave"})
 	if err == nil {
 		t.Fatal("RunWaves() error = nil, want error for unknown wave id")
+	}
+}
+
+func TestRunner_RunTaskExecutesUnreferencedCheckOnce(t *testing.T) {
+	cfg, err := config.Parse([]byte(`
+inventory:
+  - id: standalone
+    name: Standalone Task
+    command: "printf x"
+`))
+	if err != nil {
+		t.Fatalf("Parse() error = %v", err)
+	}
+	r := runner.New(cfg, discardFormatter{})
+	reported := 0
+	r.OnCheckDone = func(id, name string, passed bool) {
+		reported++
+		if id != "standalone" || name != "Standalone Task" || !passed {
+			t.Errorf("OnCheckDone(%q, %q, %t) unexpected values", id, name, passed)
+		}
+	}
+
+	result := r.RunTask(cfg.ResolveCheck(cfg.Inventory[0]))
+	if !result.Success() {
+		t.Fatalf("RunTask() result = %+v, want success", result)
+	}
+	if got := string(result.Output); got != "x" {
+		t.Errorf("task output = %q, want %q", got, "x")
+	}
+	if reported != 1 {
+		t.Errorf("OnCheckDone called %d times, want 1", reported)
+	}
+}
+
+func TestRunner_RunTaskReportsFailure(t *testing.T) {
+	cfg, err := config.Parse([]byte(`
+inventory:
+  - id: fail
+    command: "exit 1"
+`))
+	if err != nil {
+		t.Fatalf("Parse() error = %v", err)
+	}
+	r := runner.New(cfg, discardFormatter{})
+	var reportedPassed bool
+	r.OnCheckDone = func(_ string, _ string, passed bool) {
+		reportedPassed = passed
+	}
+
+	result := r.RunTask(cfg.ResolveCheck(cfg.Inventory[0]))
+	if result.Success() {
+		t.Fatal("RunTask() succeeded, want failure")
+	}
+	if reportedPassed {
+		t.Error("OnCheckDone reported failure as passed")
 	}
 }
 

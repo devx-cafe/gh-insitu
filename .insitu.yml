@@ -1,5 +1,5 @@
 # .insitu.yml – insitu self-hosting configuration
-# Run 'insitu plan' to preview  |  'insitu run' to execute
+# Run 'insitu run --plan trunk-worthy test' to preview these waves.
 # cspell:ignore markdownlint
 
 defaults:

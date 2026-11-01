@@ -16,6 +16,7 @@ var (
 	runConfigFile string
 	markPending   bool
 	runVerbose    bool
+	runPlan       bool
 )
 
 // githubActionsEnv is the value of the GITHUB_ACTIONS environment variable
@@ -23,12 +24,13 @@ var (
 const githubActionsEnv = "true"
 
 var runCmd = &cobra.Command{
-	Use:   "run [wave-id...]",
+	Use:   "run <wave-id> [<wave-id>...]",
 	Short: "Execute one or more waves of checks",
 	Long: `Execute checks defined in .insitu.yml.
 
-If no wave IDs are provided all waves are executed in order.
-Waves with parallel: true run their checks concurrently.
+Name one or more wave IDs to execute them in the supplied order. Waves with
+parallel: true run their checks concurrently. Use --plan to preview the
+selected waves without executing them.
 
 When run inside a GitHub Actions workflow (GITHUB_ACTIONS=true) each check
 result is automatically reported as a commit status using the check's id as
@@ -44,16 +46,23 @@ failures.  --verbose defaults to true inside GitHub Actions workflows and
 false everywhere else.
 
 Examples:
-  insitu run                          # run all waves
+  insitu run trunk-worthy test        # run selected waves in order
   insitu run static                   # run only the 'static' wave
   insitu run static test              # run 'static' then 'test'
-  insitu run --mark-pending           # mark all wave checks as pending
   insitu run trunk-worthy --mark-pending  # mark trunk-worthy checks as pending
-  insitu run --verbose                # always print all command output`,
+  insitu run --plan trunk-worthy      # preview a wave
+  insitu run trunk-worthy --plan      # preview a wave
+  insitu run --verbose trunk-worthy   # always print all command output`,
+	Args: cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cfg, err := config.Load(runConfigFile)
 		if err != nil {
 			return fmt.Errorf("could not load config: %w", err)
+		}
+
+		waves, err := selectWaves(cfg, args)
+		if err != nil {
+			return err
 		}
 
 		// Determine effective verbose setting.
@@ -61,6 +70,11 @@ Examples:
 		verbose := runVerbose
 		if !cmd.Flags().Changed("verbose") {
 			verbose = os.Getenv("GITHUB_ACTIONS") == githubActionsEnv
+		}
+
+		if runPlan {
+			printWavePlan(os.Stdout, cfg, waves)
+			return nil
 		}
 
 		formatter := ui.NewFormatter(os.Stdout, verbose)
@@ -122,6 +136,9 @@ func buildStatusReporter() func(id, displayName string, passed bool) {
 // runMarkPending resolves all checks for the selected wave(s) and marks each
 // one as "pending" via the GitHub Statuses API.
 func runMarkPending(r *runner.Runner, waveIDs []string) error {
+	if len(waveIDs) == 0 {
+		return fmt.Errorf("at least one wave ID is required")
+	}
 	if os.Getenv("GITHUB_ACTIONS") != githubActionsEnv {
 		return fmt.Errorf("--mark-pending is only valid inside a GitHub Actions workflow")
 	}
@@ -157,4 +174,6 @@ func init() {
 		"Mark all checks in the selected wave(s) as 'pending' without running them (GitHub Actions only)")
 	runCmd.Flags().BoolVar(&runVerbose, "verbose", false,
 		"Print command output for all checks, not just failures (default: true in GitHub Actions, false locally)")
+	runCmd.Flags().BoolVarP(&runPlan, "plan", "p", false,
+		"Print the selected waves' execution plan without running checks")
 }

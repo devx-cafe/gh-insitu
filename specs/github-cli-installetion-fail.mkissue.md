@@ -37,7 +37,7 @@ Relevant script section:
 2. Use a postCreateCommand that expects the extension to be runnable, for example:
 
 ```jsonc
-"postCreateCommand": "gh insitu run -c .insitu.prep.yml"
+"postCreateCommand": "gh insitu run prep -c .insitu.prep.yml"
 ```
 
 1. Build and start container.

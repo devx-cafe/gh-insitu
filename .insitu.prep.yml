@@ -1,5 +1,5 @@
 # .insitu.yml – insitu self-hosting configuration
-# Run 'insitu plan' to preview  |  'insitu run' to execute
+# Run 'insitu run --plan prep' to preview this wave.
 # cspell:ignore markdownlint
 
 defaults:
