@@ -107,6 +107,14 @@ func (r *Runner) runWave(wave config.Wave, inventory map[string]config.Check) (W
 		checks = append(checks, r.Config.ResolveCheck(check))
 	}
 
+	if p, ok := r.Formatter.(ui.WavePlanner); ok {
+		planned := make([]ui.PlannedCheck, len(checks))
+		for i, c := range checks {
+			planned[i] = ui.PlannedCheck{ID: c.ID, DisplayName: c.DisplayName()}
+		}
+		p.WavePlan(wave.ID, planned)
+	}
+
 	var results []CheckResult
 	if wave.Parallel {
 		results = r.runParallel(checks)
