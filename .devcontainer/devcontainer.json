@@ -13,14 +13,10 @@
     }
   },
   "features": {
-    "ghcr.io/devcontainers-extra/features/npm-packages:1": {
-      "packages": [
-        "markdownlint-cli2",
-        "prettier",
-        "cspell",
-        "@cspell/dict-da-dk",
-        "@github/copilot"
-      ]
+    "ghcr.io/devcontainers/features/node:2.1.1": {
+      "version": "lts",
+      "nodeGypDependencies": "false",
+      "installYarn": "false"
     },
     "ghcr.io/devcontainers/features/common-utils:2": {},
     "ghcr.io/devcontainers/features/github-cli:1": {},
@@ -29,7 +25,7 @@
   },
   "image": "mcr.microsoft.com/devcontainers/base:noble",
   "name": "Ubuntu",
-  "postCreateCommand": "gh ext install devx-cafe/gh-insitu \u0026\u0026 gh insitu run post-create",
+  "postCreateCommand": "gh ext install devx-cafe/gh-insitu && gh insitu run post-create",
   "remoteEnv": {
     "GH_TOKEN": "${localEnv:GH_TOKEN}"
   }

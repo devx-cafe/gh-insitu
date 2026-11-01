@@ -2,7 +2,7 @@
 
 ## Go Version
 
-- **Current version**: Go 1.23
+- **Current version**: Go 1.24
 - **Update policy**: Keep reasonably current with stable Go releases
 
 ## Project Layout

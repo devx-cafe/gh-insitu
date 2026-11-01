@@ -29,6 +29,47 @@ inventory:
     name: "Unit Test with Coverage"
     command: "make coverage"
 
+  - id: "gh-auth"
+    name: "GitHub Authentication"
+    command: "gh auth status"
+
+  - id: "install-takt"
+    name: "Install Takt"
+    command: "gh extension install devx-cafe/gh-tt"
+
+  - id: "install-takt-shortcuts"
+    name: "Install Takt Shortcuts"
+    command: |
+      gh alias set workon '!gh tt workon "$@"' --clobber 
+      gh alias set wrapup '!gh tt wrapup "$@"' --clobber
+      gh alias set deliver '!gh tt deliver "$@"' --clobber
+      gh alias set semver '!gh tt semver "$@"' --clobber
+
+  - id: "safe-repo"
+    name: "Mark repository as safe for git operations"
+    command: "git config --global --add safe.directory $(pwd)"
+
+  - id: "install-npm-tools"
+    name: "Install linting and checker tools"
+    command: |
+      npm install -g cspell markdownlint-cli2 @cspell/dict-da-dk prettier @mindovermachine-dev/remote-astro-theme
+
+  - id: repo-gitconfig
+    name: "Use repo-root .gitconfig for consistent git settings"
+    command: |
+      git config --local --get include.path | grep -e ../.gitconfig >/dev/null 2>&1 || \
+      git config --local --add include.path ../.gitconfig
+
+  - id: "fix-markdown"
+    name: "Fix all fixable markdown issues"
+    command: |
+      markdownlint-cli2 --fix
+
+  - id: "fix-prettier"
+    name: "Fix all fixable prettier issues"
+    command: |
+      prettier --write .
+
 waves:
   - id: "trunk-worthy"
     name: "Static Analysis & Build"
@@ -44,3 +85,21 @@ waves:
     parallel: true
     checks:
       - "coverage"
+
+  - id: "fix-all"
+    name: "Fix anything that can be fixed automatically"
+    parallel: true
+    checks:
+      - "fix-markdown"
+      - "fix-prettier"
+
+  - id: "post-create"
+    name: "Dev Container Post Create"
+    parallel: true
+    checks:
+      - "gh-auth"
+      - "install-takt"
+      - "install-takt-shortcuts"
+      - "safe-repo"
+      - "repo-gitconfig"
+      - "install-npm-tools"

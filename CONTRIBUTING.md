@@ -24,7 +24,7 @@ These files contain essential information about:
 
 ## Prerequisites
 
-- **Go 1.21 or higher** - This project targets Go 1.21+
+- **Go 1.24 or higher** - This project targets Go 1.24+
 - **Make** - For build automation
 - **golangci-lint v2** - Can be installed via `make install-lint`
 - **Git** - Configured with `.githooks` for pre-commit checks

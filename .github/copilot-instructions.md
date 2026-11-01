@@ -17,7 +17,7 @@ This repository contains `gh-insitu`, a GitHub CLI extension written in Go. The 
 
 ### Go Programming
 
-1. **Use Go 1.23+** - This project targets Go 1.23 or higher
+1. **Use Go 1.24+** - This project targets Go 1.24 or higher
 2. **Follow standard Go conventions**:
    - Use `gofmt` for formatting
    - Run `go vet` for static analysis
