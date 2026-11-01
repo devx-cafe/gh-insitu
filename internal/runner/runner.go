@@ -142,15 +142,24 @@ func (r *Runner) runParallel(checks []config.ResolvedCheck) []CheckResult {
 func (r *Runner) runSequential(checks []config.ResolvedCheck) []CheckResult {
 	results := make([]CheckResult, len(checks))
 	for i, check := range checks {
-		r.Formatter.CheckStart(check.ID, check.DisplayName())
-		res := execCheck(check)
-		r.Formatter.CheckEnd(check.ID, check.DisplayName(), res.Success(), res.Output, res.Duration)
-		if r.OnCheckDone != nil {
-			r.OnCheckDone(check.ID, check.DisplayName(), res.Success())
-		}
-		results[i] = res
+		results[i] = r.runCheck(check)
 	}
 	return results
+}
+
+// RunTask executes one resolved inventory check without a wave.
+func (r *Runner) RunTask(check config.ResolvedCheck) CheckResult {
+	return r.runCheck(check)
+}
+
+func (r *Runner) runCheck(check config.ResolvedCheck) CheckResult {
+	r.Formatter.CheckStart(check.ID, check.DisplayName())
+	result := execCheck(check)
+	r.Formatter.CheckEnd(check.ID, check.DisplayName(), result.Success(), result.Output, result.Duration)
+	if r.OnCheckDone != nil {
+		r.OnCheckDone(check.ID, check.DisplayName(), result.Success())
+	}
+	return result
 }
 
 // ResolveChecks returns the deduplicated ordered list of ResolvedChecks for the

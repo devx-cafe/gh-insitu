@@ -24,7 +24,7 @@ jobs:
       - name: Set up and verify runner environment
         uses: ./.github/actions/prep-runner
         with:
-          verify: ./insitu run
+          verify: ./insitu run trunk-worthy test
 
 # At this point we only duplicated the wrapup flow.
 # Add all additional jobs you want to run on the ready branch before the merge-to-trunk job

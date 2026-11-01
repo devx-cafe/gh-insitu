@@ -29,4 +29,4 @@ jobs:
       - name: Set up and verify runner environment
         uses: ./.github/actions/prep-runner
         with:
-          verify: ./insitu run
+          verify: ./insitu run trunk-worthy test

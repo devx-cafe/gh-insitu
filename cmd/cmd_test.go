@@ -6,13 +6,15 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/devx-cafe/gh-insitu/internal/config"
 	"github.com/devx-cafe/gh-insitu/internal/runner"
 	"github.com/devx-cafe/gh-insitu/internal/ui"
+	"github.com/spf13/cobra"
 )
 
-// ─── printPlan ───────────────────────────────────────────────────────────────
+// ─── plan output ────────────────────────────────────────────────────────────
 
 func TestPrintPlan_PrintsAllWaves(t *testing.T) {
 	cfg := &config.Config{
@@ -25,18 +27,8 @@ func TestPrintPlan_PrintsAllWaves(t *testing.T) {
 		},
 	}
 
-	// Redirect stdout temporarily
-	old := os.Stdout
-	r, w, _ := os.Pipe()
-	os.Stdout = w
-
-	printPlan(cfg)
-
-	_ = w.Close()
-	os.Stdout = old
-
 	var buf bytes.Buffer
-	_, _ = buf.ReadFrom(r)
+	printWavePlan(&buf, cfg, cfg.Waves)
 	out := buf.String()
 
 	if !strings.Contains(out, "Execution Plan") {
@@ -56,21 +48,12 @@ func TestPrintPlan_PrintsAllWaves(t *testing.T) {
 func TestPrintPlan_EmptyWaves(t *testing.T) {
 	cfg := &config.Config{}
 
-	old := os.Stdout
-	r, w, _ := os.Pipe()
-	os.Stdout = w
-
-	printPlan(cfg)
-
-	_ = w.Close()
-	os.Stdout = old
-
 	var buf bytes.Buffer
-	_, _ = buf.ReadFrom(r)
+	printWavePlan(&buf, cfg, nil)
 	out := buf.String()
 
-	if !strings.Contains(out, "no waves defined") {
-		t.Errorf("output %q missing 'no waves defined'", out)
+	if strings.Contains(out, "Wave ") {
+		t.Errorf("empty selection printed a wave: %q", out)
 	}
 }
 
@@ -84,17 +67,8 @@ func TestPrintPlan_SequentialWave(t *testing.T) {
 		},
 	}
 
-	old := os.Stdout
-	r, w, _ := os.Pipe()
-	os.Stdout = w
-
-	printPlan(cfg)
-
-	_ = w.Close()
-	os.Stdout = old
-
 	var buf bytes.Buffer
-	_, _ = buf.ReadFrom(r)
+	printWavePlan(&buf, cfg, cfg.Waves)
 	out := buf.String()
 
 	if !strings.Contains(out, "sequential") {
@@ -114,21 +88,140 @@ func TestPrintPlan_DieOnErrorFalse(t *testing.T) {
 		},
 	}
 
-	old := os.Stdout
-	r, w, _ := os.Pipe()
-	os.Stdout = w
-
-	printPlan(cfg)
-
-	_ = w.Close()
-	os.Stdout = old
-
 	var buf bytes.Buffer
-	_, _ = buf.ReadFrom(r)
+	printWavePlan(&buf, cfg, cfg.Waves)
 	out := buf.String()
 
 	if !strings.Contains(out, "die-on-error: false") {
 		t.Errorf("output %q missing 'die-on-error: false'", out)
+	}
+}
+
+func TestSelectWaves_PreservesSelectionOrder(t *testing.T) {
+	cfg := &config.Config{Waves: []config.Wave{{ID: "first"}, {ID: "second"}}}
+	waves, err := selectWaves(cfg, []string{"second", "first"})
+	if err != nil {
+		t.Fatalf("selectWaves() error = %v", err)
+	}
+	if len(waves) != 2 || waves[0].ID != "second" || waves[1].ID != "first" {
+		t.Errorf("selected waves = %#v, want [second first]", waves)
+	}
+}
+
+func TestSelectWaves_UnknownID(t *testing.T) {
+	cfg := &config.Config{Waves: []config.Wave{{ID: "first"}}}
+	if _, err := selectWaves(cfg, []string{"first", "missing"}); err == nil {
+		t.Fatal("selectWaves() error = nil, want error for unknown wave")
+	}
+}
+
+func TestPrintTaskPlan_IncludesEffectiveSettings(t *testing.T) {
+	check := config.ResolvedCheck{
+		Check:               config.Check{ID: "task", Name: "Task", Command: "echo task"},
+		EffectiveTimeout:    30 * time.Second,
+		EffectiveDieOnError: false,
+	}
+	var buf bytes.Buffer
+	printTaskPlan(&buf, check)
+	for _, expected := range []string{"Task", "30s", "echo task", "die-on-error: false"} {
+		if !strings.Contains(buf.String(), expected) {
+			t.Errorf("task plan %q missing %q", buf.String(), expected)
+		}
+	}
+}
+
+func TestResolveTaskOverrides(t *testing.T) {
+	inventoryTimeout := "20s"
+	inventoryDieOnError := false
+	cfg := &config.Config{
+		Defaults: config.Defaults{Timeout: "10s", DieOnError: true},
+		Inventory: []config.Check{{
+			ID: "task", Command: "echo task",
+			Timeout: &inventoryTimeout, DieOnError: &inventoryDieOnError,
+		}},
+	}
+
+	tests := []struct {
+		name           string
+		timeout        string
+		timeoutSet     bool
+		dieOnError     bool
+		dieOnErrorSet  bool
+		wantTimeout    time.Duration
+		wantDieOnError bool
+		wantErr        bool
+	}{
+		{name: "configured values", wantTimeout: 20 * time.Second, wantDieOnError: false},
+		{name: "timeout override", timeout: "30s", timeoutSet: true, wantTimeout: 30 * time.Second},
+		{name: "enable override", dieOnError: true, dieOnErrorSet: true, wantTimeout: 20 * time.Second, wantDieOnError: true},
+		{name: "disable override", dieOnErrorSet: true, wantTimeout: 20 * time.Second, wantDieOnError: false},
+		{name: "invalid timeout", timeout: "bad", timeoutSet: true, wantErr: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := resolveTask(cfg, "task", tt.timeout, tt.timeoutSet, tt.dieOnError, tt.dieOnErrorSet)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("resolveTask() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if err == nil && (got.EffectiveTimeout != tt.wantTimeout || got.EffectiveDieOnError != tt.wantDieOnError) {
+				t.Errorf("resolved task = (%s, %t), want (%s, %t)",
+					got.EffectiveTimeout, got.EffectiveDieOnError, tt.wantTimeout, tt.wantDieOnError)
+			}
+		})
+	}
+
+	if _, err := resolveTask(cfg, "missing", "", false, false, false); err == nil {
+		t.Fatal("resolveTask() error = nil, want unknown inventory ID error")
+	}
+}
+
+func TestCommandArgumentCardinality(t *testing.T) {
+	tests := []struct {
+		name    string
+		cmd     *cobra.Command
+		args    []string
+		wantErr bool
+	}{
+		{name: "run requires wave", cmd: runCmd, args: nil, wantErr: true},
+		{name: "run accepts wave", cmd: runCmd, args: []string{"wave-a"}},
+		{name: "task requires inventory ID", cmd: taskCmd, args: nil, wantErr: true},
+		{name: "task accepts one inventory ID", cmd: taskCmd, args: []string{"task-a"}},
+		{name: "task rejects multiple inventory IDs", cmd: taskCmd, args: []string{"task-a", "task-b"}, wantErr: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.cmd.Args(tt.cmd, tt.args)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Args(%v) error = %v, wantErr %v", tt.args, err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestCommandRegistrationAndFlags(t *testing.T) {
+	for _, command := range rootCmd.Commands() {
+		if command.Name() == "plan" {
+			t.Fatal("standalone plan command is still registered")
+		}
+	}
+	for _, name := range []string{"plan", "verbose"} {
+		if runCmd.Flags().Lookup(name) == nil {
+			t.Errorf("run command is missing --%s", name)
+		}
+		if taskCmd.Flags().Lookup(name) == nil {
+			t.Errorf("task command is missing --%s", name)
+		}
+	}
+	for _, name := range []string{"timeout", "die-on-error"} {
+		if runCmd.Flags().Lookup(name) != nil {
+			t.Errorf("run command unexpectedly accepts --%s", name)
+		}
+		if taskCmd.Flags().Lookup(name) == nil {
+			t.Errorf("task command is missing --%s", name)
+		}
+	}
+	if runCmd.Flags().ShorthandLookup("p") == nil || taskCmd.Flags().ShorthandLookup("p") == nil {
+		t.Error("both run and task must provide -p as a shorthand for --plan")
 	}
 }
 
@@ -185,7 +278,7 @@ func TestRunMarkPending_FailsOutsideCI(t *testing.T) {
 	f := ui.NewFormatter(os.Stdout, false)
 	r := runner.New(cfg, f)
 
-	err := runMarkPending(r, nil)
+	err := runMarkPending(r, []string{"w"})
 	if err == nil {
 		t.Fatal("runMarkPending() error = nil, want error outside CI")
 	}
@@ -208,7 +301,7 @@ func TestRunMarkPending_FailsWithoutToken(t *testing.T) {
 	f := ui.NewFormatter(os.Stdout, false)
 	r := runner.New(cfg, f)
 
-	err := runMarkPending(r, nil)
+	err := runMarkPending(r, []string{"w"})
 	if err == nil {
 		t.Fatal("runMarkPending() error = nil, want error without token")
 	}
@@ -224,12 +317,19 @@ func TestRunMarkPending_UnknownWave(t *testing.T) {
 		Inventory: []config.Check{{ID: "x", Command: "echo x"}},
 		Waves:     []config.Wave{{ID: "w", Checks: []string{"x"}}},
 	}
+
 	f := ui.NewFormatter(os.Stdout, false)
 	r := runner.New(cfg, f)
 
 	err := runMarkPending(r, []string{"no-such-wave"})
 	if err == nil {
 		t.Fatal("runMarkPending() error = nil, want error for unknown wave")
+	}
+}
+
+func TestRunMarkPending_RequiresWaveSelection(t *testing.T) {
+	if err := runMarkPending(nil, nil); err == nil || !strings.Contains(err.Error(), "wave ID") {
+		t.Fatalf("runMarkPending(nil) error = %v, want required wave ID error", err)
 	}
 }
 

@@ -2,49 +2,29 @@ package cmd
 
 import (
 	"fmt"
-	"os"
+	"io"
 
 	"github.com/devx-cafe/gh-insitu/internal/config"
-	"github.com/spf13/cobra"
 )
 
-var planConfigFile string
-
-var planCmd = &cobra.Command{
-	Use:   "plan",
-	Short: "Validate configuration and print the resolved execution plan",
-	Long: `Dry-run mode: validate the insitu YAML configuration and print the
-resolved execution order, effective timeouts, and command overrides.
-
-No checks are actually executed.
-
-Examples:
-  insitu plan
-  insitu plan --config custom.yml`,
-	RunE: func(_ *cobra.Command, _ []string) error {
-		cfg, err := config.Load(planConfigFile)
-		if err != nil {
-			return fmt.Errorf("could not load config: %w", err)
+func selectWaves(cfg *config.Config, waveIDs []string) ([]config.Wave, error) {
+	waves := make([]config.Wave, 0, len(waveIDs))
+	for _, id := range waveIDs {
+		wave, ok := cfg.GetWave(id)
+		if !ok {
+			return nil, fmt.Errorf("wave %q not found in configuration", id)
 		}
-
-		printPlan(cfg)
-		return nil
-	},
+		waves = append(waves, *wave)
+	}
+	return waves, nil
 }
 
-func printPlan(cfg *config.Config) {
-	w := os.Stdout
+func printWavePlan(w io.Writer, cfg *config.Config, waves []config.Wave) {
 	inventory := cfg.InventoryMap()
-
 	_, _ = fmt.Fprintln(w, "📋 Execution Plan")
 	_, _ = fmt.Fprintln(w)
 
-	if len(cfg.Waves) == 0 {
-		_, _ = fmt.Fprintln(w, "  (no waves defined)")
-		return
-	}
-
-	for i, wave := range cfg.Waves {
+	for i, wave := range waves {
 		mode := "sequential"
 		if wave.Parallel {
 			mode = "parallel"
@@ -52,11 +32,7 @@ func printPlan(cfg *config.Config) {
 		_, _ = fmt.Fprintf(w, "Wave %d: %s  [%s]\n", i+1, waveName(wave), mode)
 
 		for _, checkID := range wave.Checks {
-			check, ok := inventory[checkID]
-			if !ok {
-				_, _ = fmt.Fprintf(w, "  ⚠️  %s  (unknown check id)\n", checkID)
-				continue
-			}
+			check := inventory[checkID]
 			resolved := cfg.ResolveCheck(check)
 			dieLabel := ""
 			if !resolved.EffectiveDieOnError {
@@ -69,15 +45,16 @@ func printPlan(cfg *config.Config) {
 	}
 }
 
+func printTaskPlan(w io.Writer, check config.ResolvedCheck) {
+	_, _ = fmt.Fprintln(w, "📋 Task Plan")
+	_, _ = fmt.Fprintln(w)
+	_, _ = fmt.Fprintf(w, "  ▸ %-20s  timeout: %-8s  cmd: %s  [die-on-error: %t]\n",
+		check.DisplayName(), check.EffectiveTimeout, check.Command, check.EffectiveDieOnError)
+}
+
 func waveName(w config.Wave) string {
 	if w.Name != "" {
 		return w.Name
 	}
 	return w.ID
-}
-
-func init() {
-	rootCmd.AddCommand(planCmd)
-	planCmd.Flags().StringVarP(&planConfigFile, "config", "c", config.DefaultConfigFile,
-		"Path to the insitu configuration file")
 }

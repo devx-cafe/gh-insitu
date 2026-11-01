@@ -99,11 +99,11 @@ These files contain essential information about:
    # Test the binary
    ./insitu --help
 
-   # Validate your .insitu.yml changes
-   ./insitu plan
+   # Preview selected waves
+   ./insitu run --plan trunk-worthy test
 
-   # Run all checks (self-hosting)
-   ./insitu run
+   # Run selected checks (self-hosting)
+   ./insitu run trunk-worthy test
    ```
 
 5. **Commit Your Changes**
@@ -123,7 +123,8 @@ These files contain essential information about:
 ├── cmd/                       # Command implementations
 │   ├── root.go               # Root command definition
 │   ├── run.go                # 'run' command – execute waves
-│   ├── plan.go               # 'plan' command – dry-run preview
+│   ├── plan.go               # Selected-target plan output
+│   ├── task.go               # 'task' command – execute inventory entries
 │   ├── init.go               # 'init' command – bootstrap config
 │   └── setstatus.go          # 'set-status' command – GitHub commit status
 ├── internal/
@@ -287,8 +288,8 @@ See `.github/workflows/` for workflow definitions.
 
 1. Add an entry to `inventory:` with a unique `id` and `command`
 2. Reference the `id` in the appropriate `waves[].checks[]` list
-3. Run `insitu plan` to verify the configuration
-4. Run `insitu run` to execute
+3. Run `insitu run --plan <wave-id>` to verify the selected configuration
+4. Run `insitu run <wave-id>` to execute selected waves
 
 ### Add a New CLI Command
 

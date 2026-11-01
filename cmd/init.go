@@ -9,8 +9,8 @@ import (
 
 // defaultInsituYML is written by `insitu init` when no config exists.
 const defaultInsituYML = `# .insitu.yml – insitu parallel task runner configuration
-# Run 'insitu plan' to validate this file.
-# Run 'insitu run' to execute all waves.
+# Run 'insitu run --plan static test' to preview these waves.
+# Run 'insitu run static test' to execute them.
 
 defaults:
   die-on-error: true
@@ -45,8 +45,8 @@ waves:
 // preCommitHook is written by `insitu init` into .git/hooks/pre-commit.
 const preCommitHook = `#!/bin/sh
 # Pre-commit hook installed by 'insitu init'.
-# Runs all insitu waves before allowing a commit.
-insitu run
+# Runs the configured starter waves before allowing a commit.
+insitu run static test
 `
 
 var initConfigFile string
@@ -56,7 +56,7 @@ var initCmd = &cobra.Command{
 	Use:   "init",
 	Short: "Bootstrap .insitu.yml and install the pre-commit hook",
 	Long: `Create a starter .insitu.yml configuration file and install a
-.git/hooks/pre-commit hook that runs 'insitu run' before every commit.
+.git/hooks/pre-commit hook that runs the starter waves before every commit.
 
 Use --force to overwrite an existing configuration file.
 
@@ -77,8 +77,8 @@ Examples:
 		_, _ = fmt.Fprintln(w, "   hook    → .git/hooks/pre-commit")
 		_, _ = fmt.Fprintln(w)
 		_, _ = fmt.Fprintln(w, "Edit .insitu.yml to define your checks and waves, then run:")
-		_, _ = fmt.Fprintln(w, "   insitu plan   # validate and preview")
-		_, _ = fmt.Fprintln(w, "   insitu run    # execute all waves")
+		_, _ = fmt.Fprintln(w, "   insitu run --plan <wave-id>  # validate and preview")
+		_, _ = fmt.Fprintln(w, "   insitu run <wave-id>         # execute selected waves")
 		return nil
 	},
 }
